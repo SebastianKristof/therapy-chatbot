@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+  
+  --color-bg: #F9F8F6;
+  --color-ink: #1A1A1A;
+  --color-ink-muted: #666666;
+  --color-accent: #5A5A40; /* Muted Olive */
+  --color-accent-light: #E8E8E0;
+  --color-border: rgba(0, 0, 0, 0.08);
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+.markdown-body {
+  @apply text-ink leading-relaxed;
+}
+
+.markdown-body p {
+  @apply mb-4;
+}
+
+.markdown-body ul {
+  @apply list-disc pl-6 mb-4;
+}
+
+.markdown-body ol {
+  @apply list-decimal pl-6 mb-4;
+}
+
+.markdown-body strong {
+  @apply font-semibold;
+}
+
+.markdown-body em {
+  @apply italic;
+}
+
+.glass-card {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
+}
+
+.btn-primary {
+  @apply bg-accent text-white px-6 py-3 rounded-full font-medium transition-all hover:opacity-90 active:scale-95;
+}
+
+.btn-secondary {
+  @apply bg-accent-light text-accent px-6 py-3 rounded-full font-medium transition-all hover:bg-accent-light/80 active:scale-95;
+}
+
+.btn-ghost {
+  @apply text-ink-muted px-4 py-2 rounded-full font-medium transition-all hover:bg-black/5 active:scale-95;
+}
