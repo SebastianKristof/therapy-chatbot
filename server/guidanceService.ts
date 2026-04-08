@@ -470,6 +470,10 @@ async function ensureCachedEmbeddings(entries: GuidanceEntry[]): Promise<Guidanc
 }
 
 function isModeMatch(entryMode: GuidanceMode, activeMode: Mode) {
+  if (activeMode === 'chat') {
+    return true;
+  }
+
   return entryMode === 'any' || entryMode === activeMode;
 }
 

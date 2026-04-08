@@ -329,12 +329,13 @@ function configureLlamaIndexEmbedding() {
 
 function buildRetrievalQuery(mode: Mode, userInput: string, contextSummary?: string) {
   const summary = contextSummary ? normalizeWhitespace(contextSummary).slice(0, MAX_CONTEXT_SUMMARY_CHARS) : '';
+  const normalizedMode = mode === 'chat' ? 'any' : mode;
 
   if (!summary) {
-    return `mode=${mode}\nuser=${userInput}`;
+    return `mode=${normalizedMode}\nuser=${userInput}`;
   }
 
-  return `mode=${mode}\nuser=${userInput}\nsession_memory=${summary}`;
+  return `mode=${normalizedMode}\nuser=${userInput}\nsession_memory=${summary}`;
 }
 
 function resolveSource(node: BaseNode) {
@@ -408,6 +409,10 @@ function metadataBooleanValue(metadata: Record<string, unknown> | undefined, key
 }
 
 function isModeCompatible(metadata: Record<string, unknown> | undefined, activeMode: Mode) {
+  if (activeMode === 'chat') {
+    return true;
+  }
+
   const modeValue = metadataStringValue(metadata, 'mode', 'any').toLowerCase();
 
   if (!modeValue || modeValue === 'any') {
