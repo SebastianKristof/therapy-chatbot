@@ -43,8 +43,12 @@ export function devApiPlugin(): Plugin {
         try {
           if (pathname === '/api/chat') {
             const body = await readJsonBody(request);
-            const text = await generateChatResponse(body);
-            sendJson(response, 200, { text, model: getConfiguredModel() });
+            const completion = await generateChatResponse(body);
+            sendJson(response, 200, {
+              text: completion.text,
+              followUpChips: completion.followUpChips,
+              model: getConfiguredModel(),
+            });
             return;
           }
 

@@ -17,10 +17,11 @@ function json(status: number, payload: unknown) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const text = await generateChatResponse(body);
+    const completion = await generateChatResponse(body);
 
     return json(200, {
-      text,
+      text: completion.text,
+      followUpChips: completion.followUpChips,
       model: getConfiguredModel(),
     });
   } catch (error) {

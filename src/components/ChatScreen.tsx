@@ -6,7 +6,7 @@ import { generateResponse, generateSummary } from '../services/aiGatewayService'
 import { transcribeRecording } from '../services/openAiTranscriptionService';
 import Message from './Message';
 import Summary from './Summary';
-import { getNextSupportPrompts, getStarterPrompts } from '../lib/supportPrompts';
+import { getStarterPrompts } from '../lib/supportPrompts';
 import BrandMark from './BrandMark';
 
 interface ChatScreenProps {
@@ -307,8 +307,9 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
       const assistantMessage: MessageType = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response,
+        content: response.text,
         timestamp: Date.now(),
+        followUpChips: response.followUpChips,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -355,18 +356,12 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="flex flex-col h-full min-h-0"
+      className="flex flex-col"
       onPointerDown={revealChrome}
       onTouchStart={revealChrome}
     >
-      <div className="flex items-center justify-between mb-4 md:mb-5 shrink-0">
-        <button onClick={handleReset} className="btn-ghost flex items-center gap-2 -ml-4">
-          <ArrowLeft size={18} />
-          <span className="text-sm">Start over</span>
-        </button>
-        <div className="text-center">
-          <BrandMark className="justify-center" />
-        </div>
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-4 md:mb-5">
+        <BrandMark className="justify-start" />
         <div ref={actionMenuRef} className="relative">
           <button
             type="button"
@@ -374,12 +369,28 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
             aria-haspopup="menu"
             aria-expanded={isActionMenuOpen}
             aria-label="Open session actions"
-            className="btn-ghost -mr-3 inline-flex h-10 w-10 items-center justify-center"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white/90 text-ink shadow-sm transition-colors hover:bg-white"
           >
             <MoreVertical size={18} />
           </button>
           {isActionMenuOpen ? (
             <div className="absolute right-0 top-full z-30 mt-3 w-72 overflow-hidden rounded-3xl border border-border bg-white p-2 shadow-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsActionMenuOpen(false);
+                  handleReset();
+                }}
+                className="w-full rounded-2xl px-4 py-3 text-left transition-colors hover:bg-bg"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <ArrowLeft size={16} />
+                  Start over
+                </div>
+                <div className="mt-1 text-xs leading-relaxed text-ink-muted">
+                  Return to the home screen and clear this chat.
+                </div>
+              </button>
               <button
                 type="button"
                 onClick={handleMarkForDrKristof}
@@ -410,11 +421,8 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        <div
-          className="flex-1 min-h-0 overflow-y-auto space-y-6 pb-4 scrollbar-hide"
-          onScroll={hideChrome}
-        >
+      <div className="flex flex-col">
+        <div className="space-y-6 pb-40">
           {messages.length === 0 ? (
             <div className="pt-2">
               <div className="mb-3 text-[10px] uppercase tracking-[0.3em] text-ink-muted">
@@ -439,7 +447,7 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
             <Message
               key={msg.id}
               message={msg}
-              actionChips={msg.role === 'assistant' ? getNextSupportPrompts(msg.content) : []}
+              actionChips={msg.role === 'assistant' ? msg.followUpChips ?? [] : []}
               onActionChipClick={(prompt) => {
                 void sendMessage(prompt.prompt);
               }}
@@ -466,61 +474,95 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
           </div>
         ) : null}
 
-        <div className="shrink-0 bg-bg/95 backdrop-blur-md pt-3 pb-2">
-          <form onSubmit={handleSend} className="relative">
-            <textarea
-              ref={composerRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleSend();
-                }
-              }}
-              placeholder="Type here..."
-              rows={1}
-              className="w-full bg-white/80 border border-border rounded-[28px] px-6 py-3.5 pr-28 focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all font-sans text-ink resize-none overflow-hidden leading-6"
-            />
-            <button
-              type="button"
-              onClick={toggleRecording}
-              disabled={isLoading || isTranscribing}
-              aria-pressed={isRecording}
-              aria-label={isRecording ? 'Stop recording' : 'Start recording voice input'}
-              title={isRecording ? 'Stop recording' : 'Record voice input'}
-              className={`absolute right-14 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
-                isRecording
-                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
-                  : 'bg-accent-light text-accent hover:bg-accent-light/80'
-              }`}
-            >
-              {isRecording ? (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-full border border-red-300/70"
-                    style={{
-                      transform: `scale(${1 + soundLevel * 0.45})`,
-                      opacity: 0.2 + soundLevel * 0.55,
-                    }}
-                  />
-                  <Square size={16} className="relative z-10" />
-                </>
-              ) : isTranscribing ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Mic size={16} />
-              )}
-            </button>
-            <button 
-              type="submit"
-              disabled={!input.trim() || isLoading || isRecording || isTranscribing}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent text-white rounded-full flex items-center justify-center disabled:opacity-50 transition-all"
-            >
-              <Send size={18} />
-            </button>
-          </form>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 px-4 pb-3 pointer-events-none md:pb-4">
+        <div className="mx-auto w-full max-w-2xl pointer-events-auto">
+          {isRecording ? (
+            <div className="mb-3 flex justify-end">
+              <div className="inline-flex items-end gap-1 rounded-full border border-red-200/70 bg-white/85 px-3 py-2 shadow-sm">
+                {[0, 1, 2, 3, 4, 5].map((bar) => {
+                  const baseHeight = 6 + (bar % 2 === 0 ? 4 : 0);
+                  const dynamicHeight = baseHeight + soundLevel * (bar % 3 === 0 ? 22 : 16);
+
+                  return (
+                    <motion.span
+                      key={bar}
+                      className="w-1.5 rounded-full bg-red-500/85"
+                      animate={{
+                        height: dynamicHeight,
+                        opacity: 0.35 + soundLevel * 0.65,
+                        scaleY: 0.88 + soundLevel * 0.2,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 260,
+                        damping: 18,
+                        mass: 0.45,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-[32px] bg-bg/85 p-1 shadow-[0_12px_32px_rgba(68,60,44,0.08)] backdrop-blur-md">
+            <form onSubmit={handleSend} className="relative">
+              <textarea
+                ref={composerRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSend();
+                  }
+                }}
+                placeholder="Type here..."
+                rows={1}
+                className="w-full bg-white/80 border border-border rounded-[28px] px-6 py-3.5 pr-28 focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all font-sans text-ink resize-none overflow-hidden leading-6"
+              />
+              <button
+                type="button"
+                onClick={toggleRecording}
+                disabled={isLoading || isTranscribing}
+                aria-pressed={isRecording}
+                aria-label={isRecording ? 'Stop recording' : 'Start recording voice input'}
+                title={isRecording ? 'Stop recording' : 'Record voice input'}
+                className={`absolute right-14 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
+                  isRecording
+                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
+                    : 'bg-accent-light text-accent hover:bg-accent-light/80'
+                }`}
+              >
+                {isRecording ? (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-full border border-red-300/70"
+                      style={{
+                        transform: `scale(${1 + soundLevel * 0.45})`,
+                        opacity: 0.2 + soundLevel * 0.55,
+                      }}
+                    />
+                    <Square size={16} className="relative z-10" />
+                  </>
+                ) : isTranscribing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Mic size={16} />
+                )}
+              </button>
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading || isRecording || isTranscribing}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent text-white rounded-full flex items-center justify-center disabled:opacity-50 transition-all"
+              >
+                <Send size={18} />
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </motion.div>

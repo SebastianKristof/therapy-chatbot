@@ -31,7 +31,7 @@ export default function HomeScreen({ onStartChat }: HomeScreenProps) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto py-6 md:py-8"
+      className="flex flex-col py-6 md:py-8"
     >
       <div className="space-y-6 md:space-y-7">
         <div className="flex justify-center">

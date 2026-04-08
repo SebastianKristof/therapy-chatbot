@@ -26,10 +26,8 @@ export default function App() {
     setChromeVisible(true);
   };
 
-  const lockViewport = hasOnboarded && currentScreen === 'chat';
-
   return (
-    <Layout chromeVisible={chromeVisible} lockViewport={lockViewport}>
+    <Layout chromeVisible={chromeVisible} lockViewport={false}>
       {!hasOnboarded ? (
         <Onboarding onComplete={handleOnboardingComplete} />
       ) : currentScreen === 'home' ? (

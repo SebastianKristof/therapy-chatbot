@@ -1,7 +1,7 @@
 import { createGateway, generateText, type ModelMessage } from 'ai';
 import { APICallError } from '@ai-sdk/provider';
 import { SYSTEM_PROMPT_BASE } from '../src/config/modeDefinitions.js';
-import type { Message, Mode } from '../src/types.js';
+import type { FollowUpChip, Message, Mode } from '../src/types.js';
 
 const DEFAULT_GATEWAY_MODEL = 'google/gemini-3-flash';
 const VALID_MODES = new Set<Mode>([
@@ -101,6 +101,11 @@ export interface ChatPayload {
 export interface SummaryPayload {
   history: Message[];
   mode?: Mode;
+}
+
+export interface ChatCompletionPayload {
+  text: string;
+  followUpChips: FollowUpChip[];
 }
 
 type SupportIntent = 'open_conversation' | 'guided_reflection' | 'process_question';
@@ -260,9 +265,95 @@ function buildChatSystemInstruction(intent: SupportIntent) {
 
     Guidelines for this response:
     - Keep it concise and easy to read.
-    - Ask a clear, gentle follow-up question if appropriate.
-    - If the conversation seems to be reaching a natural conclusion, provide a short "Useful Takeaway" or "Reflection Summary".
+    - Return valid JSON only. No markdown fences. No extra prose outside the JSON.
+    - Use this exact shape: {"answer":"string","followUpChips":[{"label":"string","prompt":"string"}]}.
+    - The answer should be the assistant reply shown in chat.
+    - followUpChips must contain 2 to 4 short, relevant next-turn options based on this specific answer.
+    - Labels should be brief and natural. Prompts should be full user turns.
+    - Do not use generic filler chips like "Explain more" unless the answer actually explained something.
+    - If the answer mainly invites the user to share more, the chips should suggest concrete ways they might continue.
+    - If the conversation seems to be reaching a natural conclusion, keep the chips practical and grounded.
   `;
+}
+
+function extractJsonObject(raw: string) {
+  const trimmed = raw.trim();
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
+}
+
+function sanitizeFollowUpChips(value: unknown): FollowUpChip[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const unique = new Set<string>();
+  const chips: FollowUpChip[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+
+    const candidate = item as Record<string, unknown>;
+    const label = typeof candidate.label === 'string' ? candidate.label.trim() : '';
+    const prompt = typeof candidate.prompt === 'string' ? candidate.prompt.trim() : '';
+
+    if (!label || !prompt) {
+      continue;
+    }
+
+    const key = `${label}::${prompt}`.toLowerCase();
+
+    if (unique.has(key)) {
+      continue;
+    }
+
+    unique.add(key);
+    chips.push({
+      label: label.slice(0, 48),
+      prompt: prompt.slice(0, 180),
+    });
+
+    if (chips.length === 4) {
+      break;
+    }
+  }
+
+  return chips;
+}
+
+function parseChatCompletion(raw: string): ChatCompletionPayload {
+  try {
+    const parsed = JSON.parse(extractJsonObject(raw)) as Record<string, unknown>;
+    const text = typeof parsed.answer === 'string' ? parsed.answer.trim() : '';
+
+    if (!text) {
+      throw new Error('Missing answer field.');
+    }
+
+    return {
+      text,
+      followUpChips: sanitizeFollowUpChips(parsed.followUpChips),
+    };
+  } catch {
+    return {
+      text: raw || "I'm sorry, I couldn't generate a response. Please try again.",
+      followUpChips: [],
+    };
+  }
 }
 
 export async function generateChatResponse(payload: ChatPayload) {
@@ -282,7 +373,7 @@ export async function generateChatResponse(payload: ChatPayload) {
     temperature: 0.7,
   });
 
-  return text || "I'm sorry, I couldn't generate a response. Please try again.";
+  return parseChatCompletion(text || '');
 }
 
 export async function generateConversationSummary(payload: SummaryPayload) {
@@ -296,8 +387,22 @@ export async function generateConversationSummary(payload: SummaryPayload) {
       ${SYSTEM_PROMPT_BASE}
       Task: Summarize the entire conversation, not just the final exchange.
       Current Support Intent: ${supportIntent}
-      Format: A short, thoughtful list of 2-3 points with a useful closing takeaway.
       Goal: Help the user leave with something useful to reflect on or bring to their next session.
+
+      Return markdown with exactly these four section headings:
+      ## Main Issue
+      ## Important Patterns
+      ## Useful Takeaway
+      ## What To Bring To Session
+
+      Requirements:
+      - Base the summary on the whole conversation from beginning to end.
+      - Do not focus mainly on the final reply or final question.
+      - "Main Issue" should state the central concern or theme in 1-2 sentences.
+      - "Important Patterns" should capture 2-4 concise points that came up across the conversation.
+      - "Useful Takeaway" should give one grounded takeaway the user can leave with now.
+      - "What To Bring To Session" should name concrete material worth bringing to the next session.
+      - Keep the tone thoughtful, calm, and specific.
     `,
     messages: toModelMessages(payload.history),
     temperature: 0.5,
