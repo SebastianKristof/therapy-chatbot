@@ -363,6 +363,7 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
         content: response.text,
         timestamp: Date.now(),
         followUpChips: response.followUpChips,
+        ragDebug: response.ragDebug,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -506,14 +507,59 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
           ) : null}
 
           {messages.map((msg) => (
-            <Message
-              key={msg.id}
-              message={msg}
-              actionChips={msg.role === 'assistant' ? msg.followUpChips ?? [] : []}
-              onActionChipClick={(prompt) => {
-                void sendMessage(prompt.prompt);
-              }}
-            />
+            <div key={msg.id} className="space-y-2">
+              <Message
+                message={msg}
+                actionChips={msg.role === 'assistant' ? msg.followUpChips ?? [] : []}
+                onActionChipClick={(prompt) => {
+                  void sendMessage(prompt.prompt);
+                }}
+              />
+              {msg.role === 'assistant' && msg.ragDebug ? (
+                <details className="rounded-2xl border border-border bg-white/65 px-4 py-3 text-xs text-ink-muted">
+                  <summary className="cursor-pointer select-none font-medium text-ink">
+                    RAG Debug • {msg.ragDebug.knowledgeItems.length} source
+                    {msg.ragDebug.knowledgeItems.length === 1 ? '' : 's'}
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      Mode: <span className="text-ink">{msg.ragDebug.mode}</span> • Intent:{' '}
+                      <span className="text-ink">{msg.ragDebug.supportIntent}</span>
+                    </div>
+                    <div>
+                      Verbatim guidance hit:{' '}
+                      <span className="text-ink">{msg.ragDebug.usedVerbatimGuidance ? 'yes' : 'no'}</span>
+                    </div>
+                    {msg.ragDebug.guidanceMatchId ? (
+                      <div>
+                        Guidance match: <span className="text-ink">{msg.ragDebug.guidanceMatchId}</span>
+                        {typeof msg.ragDebug.guidanceMatchScore === 'number'
+                          ? ` (${msg.ragDebug.guidanceMatchScore.toFixed(3)})`
+                          : ''}
+                      </div>
+                    ) : null}
+                    {msg.ragDebug.knowledgeItems.length === 0 ? (
+                      <div className="rounded-xl border border-border/70 bg-white/70 px-3 py-2">
+                        No knowledge chunks retrieved for this turn.
+                      </div>
+                    ) : (
+                      msg.ragDebug.knowledgeItems.map((item, index) => (
+                        <div key={`${msg.id}-rag-${index}`} className="rounded-xl border border-border/70 bg-white/70 px-3 py-2">
+                          <div className="font-medium text-ink">
+                            {index + 1}. {item.source}
+                            {typeof item.score === 'number' ? ` • score ${item.score.toFixed(4)}` : ''}
+                          </div>
+                          <div className="mt-1 text-[11px]">
+                            corpus={item.corpus} • ruleType={item.ruleType} • priority={item.priority}
+                          </div>
+                          <div className="mt-1 text-[11px] leading-relaxed text-ink-muted">{item.excerpt}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </details>
+              ) : null}
+            </div>
           ))}
           {isLoading && (
             <div className="flex justify-start">

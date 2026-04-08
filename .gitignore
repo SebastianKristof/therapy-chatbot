@@ -9,4 +9,3 @@ coverage/
 .vercel
 materials/*
 !materials/.gitkeep
-server/data/knowledge-index/

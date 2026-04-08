@@ -1,9 +1,10 @@
-import { FollowUpChip, Message, Mode } from '../types';
+import { FollowUpChip, Message, Mode, type RagDebugInfo } from '../types';
 import { getAccessHeaders } from '../lib/access';
 
 interface TextResponse {
   text?: string;
   followUpChips?: FollowUpChip[];
+  ragDebug?: RagDebugInfo;
   error?: string;
   model?: string;
 }
@@ -11,6 +12,21 @@ interface TextResponse {
 export interface ChatCompletion {
   text: string;
   followUpChips: FollowUpChip[];
+  ragDebug?: RagDebugInfo;
+}
+
+function isRagDebugRequested() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const queryDebug = new URLSearchParams(window.location.search).get('ragDebug');
+
+  if (queryDebug === '1' || queryDebug === 'true') {
+    return true;
+  }
+
+  return window.localStorage.getItem('askdrk_rag_debug') === 'true';
 }
 
 async function postJson(url: string, payload: unknown) {
@@ -44,11 +60,13 @@ export async function generateResponse(
       history,
       userInput,
       contextSummary,
+      debugRag: isRagDebugRequested(),
     });
 
     return {
       text: data.text || "I'm sorry, I couldn't generate a response. Please try again.",
       followUpChips: Array.isArray(data.followUpChips) ? data.followUpChips : [],
+      ragDebug: data.ragDebug,
     };
   } catch (error) {
     console.error('AI Gateway chat error:', error);
@@ -57,12 +75,14 @@ export async function generateResponse(
       return {
         text: error.message,
         followUpChips: [],
+        ragDebug: undefined,
       };
     }
 
     return {
       text: 'I am experiencing a technical difficulty. Please take a breath and try again in a moment.',
       followUpChips: [],
+      ragDebug: undefined,
     };
   }
 }

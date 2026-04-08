@@ -12,6 +12,26 @@ export interface FollowUpChip {
   prompt: string;
 }
 
+export interface RagDebugKnowledgeItem {
+  source: string;
+  excerpt: string;
+  score?: number;
+  corpus: string;
+  ruleType: string;
+  priority: number;
+}
+
+export interface RagDebugInfo {
+  mode: Mode;
+  supportIntent: 'open_conversation' | 'guided_reflection' | 'process_question';
+  usedVerbatimGuidance: boolean;
+  guidanceMatchId?: string;
+  guidanceMatchScore?: number;
+  guidanceContextApplied: boolean;
+  knowledgeItems: RagDebugKnowledgeItem[];
+  knowledgeContextPreview: string;
+}
+
 export interface ContextSummaryPayload {
   contextSummary?: string;
 }
@@ -22,6 +42,7 @@ export interface Message {
   content: string;
   timestamp: number;
   followUpChips?: FollowUpChip[];
+  ragDebug?: RagDebugInfo;
 }
 
 export interface ChatSession {

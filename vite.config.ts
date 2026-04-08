@@ -6,11 +6,33 @@ import { devApiPlugin } from './server/devApiPlugin';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
-  process.env.AI_GATEWAY_API_KEY = env.AI_GATEWAY_API_KEY || process.env.AI_GATEWAY_API_KEY;
-  process.env.AI_GATEWAY_MODEL = env.AI_GATEWAY_MODEL || process.env.AI_GATEWAY_MODEL;
-  process.env.OPENAI_API_KEY = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  process.env.OPENAI_TRANSCRIPTION_MODEL =
-    env.OPENAI_TRANSCRIPTION_MODEL || process.env.OPENAI_TRANSCRIPTION_MODEL;
+  const runtimeKeys = [
+    'AI_GATEWAY_API_KEY',
+    'AI_GATEWAY_MODEL',
+    'OPENAI_API_KEY',
+    'OPENAI_TRANSCRIPTION_MODEL',
+    'EMBEDDING_PROVIDER',
+    'EMBEDDING_GATEWAY_API_KEY',
+    'EMBEDDING_GATEWAY_BASE_URL',
+    'KNOWLEDGE_BASE_ENABLED',
+    'MATERIALS_DIR',
+    'KNOWLEDGE_INDEX_DIR',
+    'KNOWLEDGE_EMBED_MODEL',
+    'KNOWLEDGE_RETRIEVAL_TOP_K',
+    'KNOWLEDGE_CHUNK_SIZE',
+    'KNOWLEDGE_CHUNK_OVERLAP',
+    'GUIDANCE_ENABLED',
+    'GUIDANCE_DATA_PATH',
+    'GUIDANCE_EMBED_MODEL',
+    'GUIDANCE_VERBATIM_THRESHOLD',
+    'GUIDANCE_ADAPT_THRESHOLD',
+    'GUIDANCE_MATCH_LIMIT',
+    'RAG_DEBUG',
+  ] as const;
+
+  for (const key of runtimeKeys) {
+    process.env[key] = env[key] || process.env[key];
+  }
 
   return {
     plugins: [react(), tailwindcss(), devApiPlugin()],

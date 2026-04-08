@@ -1,7 +1,7 @@
 import { createGateway, generateText, type ModelMessage } from 'ai';
 import { APICallError } from '@ai-sdk/provider';
 import { SYSTEM_PROMPT_BASE } from '../src/config/modeDefinitions.js';
-import type { FollowUpChip, Message, Mode } from '../src/types.js';
+import type { FollowUpChip, Message, Mode, RagDebugInfo } from '../src/types.js';
 import { formatKnowledgeContext, retrieveKnowledgeContext } from './knowledgeBase.js';
 import { resolveGuidanceForTurn } from './guidanceService.js';
 
@@ -99,6 +99,7 @@ export interface ChatPayload {
   history: Message[];
   userInput: string;
   contextSummary?: string;
+  debugRag?: boolean;
 }
 
 export interface SummaryPayload {
@@ -116,6 +117,7 @@ export interface ContextSummaryRequestPayload {
 export interface ChatCompletionPayload {
   text: string;
   followUpChips: FollowUpChip[];
+  ragDebug?: RagDebugInfo;
 }
 
 type SupportIntent = 'open_conversation' | 'guided_reflection' | 'process_question';
@@ -135,6 +137,20 @@ function getGatewayModel() {
   }
 
   return createGateway({ apiKey })(getConfiguredModel());
+}
+
+function isRagDebugEnabled(requestDebugFlag: boolean | undefined) {
+  if (requestDebugFlag === true) {
+    return true;
+  }
+
+  const envValue = readConfiguredValue(process.env.RAG_DEBUG);
+
+  if (!envValue) {
+    return false;
+  }
+
+  return envValue.toLowerCase() === 'true' || envValue === '1';
 }
 
 function isMessage(value: unknown): value is Message {
@@ -387,15 +403,34 @@ export async function generateChatResponse(payload: ChatPayload) {
   }
 
   const supportIntent = resolveSupportIntent(payload.mode, payload.userInput);
+  const debugEnabled = isRagDebugEnabled(payload.debugRag);
   const guidanceResolution = await resolveGuidanceForTurn({
     mode: payload.mode,
     userInput: payload.userInput,
   });
 
   if (guidanceResolution.verbatimResponse) {
-    return {
+    const baseResponse: ChatCompletionPayload = {
       text: guidanceResolution.verbatimResponse.text,
       followUpChips: sanitizeFollowUpChips(guidanceResolution.verbatimResponse.followUpChips),
+    };
+
+    if (!debugEnabled) {
+      return baseResponse;
+    }
+
+    return {
+      ...baseResponse,
+      ragDebug: {
+        mode: payload.mode,
+        supportIntent,
+        usedVerbatimGuidance: true,
+        guidanceMatchId: guidanceResolution.verbatimResponse.matchId,
+        guidanceMatchScore: guidanceResolution.verbatimResponse.score,
+        guidanceContextApplied: false,
+        knowledgeItems: [],
+        knowledgeContextPreview: '',
+      },
     };
   }
 
@@ -418,7 +453,23 @@ export async function generateChatResponse(payload: ChatPayload) {
     temperature: 0.7,
   });
 
-  return parseChatCompletion(text || '');
+  const completion = parseChatCompletion(text || '');
+
+  if (!debugEnabled) {
+    return completion;
+  }
+
+  return {
+    ...completion,
+    ragDebug: {
+      mode: payload.mode,
+      supportIntent,
+      usedVerbatimGuidance: false,
+      guidanceContextApplied: Boolean(guidanceResolution.guidanceContext.trim()),
+      knowledgeItems: retrievedKnowledge,
+      knowledgeContextPreview: knowledgeContext,
+    },
+  };
 }
 
 export async function generateConversationSummary(payload: SummaryPayload) {

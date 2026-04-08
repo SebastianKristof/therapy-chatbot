@@ -69,6 +69,7 @@ In `.env.local`, set:
 - optional `KNOWLEDGE_CHUNK_SIZE`
 - optional `KNOWLEDGE_CHUNK_OVERLAP`
 - optional `KNOWLEDGE_RETRIEVAL_TOP_K`
+- optional `RAG_DEBUG` (`true` to always return retrieval debug details with `/api/chat`)
 - optional `KNOWLEDGE_BASE_ENABLED`
 
 See [`.env.example`](/Users/seb/git_personal/ask-dr-kristof/.env.example) for defaults.
@@ -89,7 +90,7 @@ npm run ingest:materials -- --materials ./path/to/materials --index ./path/to/in
 
 By default, index data is persisted under [`server/data/knowledge-index/`](/Users/seb/git_personal/ask-dr-kristof/server/data/knowledge-index) and used automatically by `/api/chat` retrieval.
 
-Both `materials/*` and `server/data/knowledge-index/` are gitignored by default to reduce accidental commits of sensitive source content.
+`materials/*` is gitignored by default to reduce accidental commits of sensitive source content.
 
 ### 4) Chat with retrieval enabled
 
@@ -100,6 +101,15 @@ npm run dev
 ```
 
 If no index exists (or retrieval is disabled), chat falls back to the existing prompt + rolling context summary behavior.
+
+### RAG Debug (Verify Retrieval Turn-by-Turn)
+
+To inspect exactly what was retrieved on each assistant response:
+
+- set `RAG_DEBUG=true` in env, or
+- open the app with `?ragDebug=1` in the URL
+
+When enabled, assistant messages show a **RAG Debug** panel with source files, scores, corpus/rule metadata, and retrieved excerpts.
 
 ## Ingest Design PRDs (Split + Tagged)
 
@@ -128,6 +138,23 @@ Or manually ingest any folder:
 ```bash
 npm run ingest:materials -- --materials ./knowledge_sources/design_split
 ```
+
+## Production Deployment (Bundled Index on Vercel)
+
+This repo is now configured to bundle the local knowledge index into deployed API functions via [`vercel.json`](/Users/seb/git_personal/ask-dr-kristof/vercel.json).
+
+Workflow:
+
+1. Rebuild the index locally after content changes:
+
+```bash
+npm run ingest:materials -- --materials ./knowledge_sources/design_split
+```
+
+2. Commit updated files under [`server/data/knowledge-index/`](/Users/seb/git_personal/ask-dr-kristof/server/data/knowledge-index)
+3. Deploy to Vercel
+
+This is a practical short-term setup. Every knowledge update requires re-ingest + redeploy.
 
 ## Curated Guidance (Q/A Examples + Verbatim Answers)
 

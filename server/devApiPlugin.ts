@@ -60,6 +60,7 @@ export function devApiPlugin(): Plugin {
             sendJson(response, 200, {
               text: completion.text,
               followUpChips: completion.followUpChips,
+              ragDebug: completion.ragDebug,
               model: getConfiguredModel(),
             });
             return;

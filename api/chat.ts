@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     return json(200, {
       text: completion.text,
       followUpChips: completion.followUpChips,
+      ragDebug: completion.ragDebug,
       model: getConfiguredModel(),
     });
   } catch (error) {
