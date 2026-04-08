@@ -5,7 +5,6 @@ export interface ModeDefinition {
   title: string;
   description: string;
   initialPrompt: string;
-  systemInstruction: string;
 }
 
 export const MODE_DEFINITIONS: ModeDefinition[] = [
@@ -14,48 +13,36 @@ export const MODE_DEFINITIONS: ModeDefinition[] = [
     title: 'Reflect on what came up',
     description: 'Gentle guided pattern mapping for recent thoughts or sessions.',
     initialPrompt: "I'd like to reflect on what's been coming up for me lately.",
-    systemInstruction:
-      'You are a supportive AI companion for hypnosis clients. In "Reflect" mode, help the user map patterns in their thoughts or session experiences. Be gentle, curious, and non-judgmental.',
   },
   {
     id: 'trigger',
     title: 'Work through a trigger',
     description: 'Calmly map and understand an emotional trigger.',
     initialPrompt: "I experienced a trigger and I'd like to work through it.",
-    systemInstruction:
-      'You are a supportive AI companion. In "Trigger" mode, help the user calmly map an emotional trigger. Focus on containment and understanding without getting lost in the emotion.',
   },
   {
     id: 'reinforce',
     title: "Reinforce this week's progress",
     description: 'Solidify the positive changes and insights from your sessions.',
     initialPrompt: "I want to reinforce the progress I've made this week.",
-    systemInstruction:
-      'You are a supportive AI companion. In "Reinforce" mode, help the user solidify positive changes and insights. Focus on building confidence and recognizing growth.',
   },
   {
     id: 'prepare',
     title: 'Prepare for next session',
     description: 'Clarify what matters most before your next meeting.',
     initialPrompt: "I'd like to prepare for my next session with Dr. Kristof.",
-    systemInstruction:
-      'You are a supportive AI companion. In "Prepare" mode, help the user clarify what matters most for their next session. Focus on being thoughtful and useful.',
   },
   {
     id: 'ask_process',
     title: 'Ask about hypnosis or the process',
     description: 'Get clear, reassuring answers about how hypnosis works.',
     initialPrompt: 'I have a question about hypnosis or the therapeutic process.',
-    systemInstruction:
-      'You are a supportive AI companion. In "Ask Process" mode, provide clear, reassuring, and myth-clearing answers about hypnosis and the process. Be direct and low-drama.',
   },
   {
     id: 'ask_experience',
     title: "Ask about what I'm experiencing",
     description: 'Fast, calming orientation for "Is this normal?" questions.',
     initialPrompt: "I'm experiencing something and I want to know if it's normal.",
-    systemInstruction:
-      'You are a supportive AI companion. In "Ask Experience" mode, provide fast, calming orientation for "Is this normal?" questions. Be reassuring and bounded.',
   },
 ];
 

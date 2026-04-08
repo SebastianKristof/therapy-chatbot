@@ -48,9 +48,9 @@ export async function generateResponse(
   }
 }
 
-export async function generateSummary(history: Message[]): Promise<string> {
+export async function generateSummary(history: Message[], mode?: Mode): Promise<string> {
   try {
-    const data = await postJson('/api/summary', { history });
+    const data = await postJson('/api/summary', { history, mode });
     return data.text || 'No summary available.';
   } catch (error) {
     console.error('AI Gateway summary error:', error);

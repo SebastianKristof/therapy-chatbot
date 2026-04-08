@@ -19,7 +19,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     },
     {
       title: "How it helps",
-      content: "You can use this tool to reflect on sessions, work through triggers, reinforce your progress, or prepare for your next meeting with Dr. Kristof.",
+      content: "You can start with a helpful direction, ask freely, then use short suggestions to keep the conversation moving in a useful way.",
       icon: Info,
       color: "text-blue-600"
     },

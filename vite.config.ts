@@ -8,6 +8,9 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   process.env.AI_GATEWAY_API_KEY = env.AI_GATEWAY_API_KEY || process.env.AI_GATEWAY_API_KEY;
   process.env.AI_GATEWAY_MODEL = env.AI_GATEWAY_MODEL || process.env.AI_GATEWAY_MODEL;
+  process.env.OPENAI_API_KEY = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  process.env.OPENAI_TRANSCRIPTION_MODEL =
+    env.OPENAI_TRANSCRIPTION_MODEL || process.env.OPENAI_TRANSCRIPTION_MODEL;
 
   return {
     plugins: [react(), tailwindcss(), devApiPlugin()],

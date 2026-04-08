@@ -3,36 +3,44 @@ import Layout from './components/Layout';
 import Onboarding from './components/Onboarding';
 import HomeScreen from './components/HomeScreen';
 import ChatScreen from './components/ChatScreen';
-import { Mode } from './types';
 
 export default function App() {
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(() => {
     return localStorage.getItem('askdrkristof_onboarded') === 'true';
   });
-  
-  const [currentMode, setCurrentMode] = useState<Mode | null>(null);
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'chat'>('home');
+  const [chromeVisible, setChromeVisible] = useState(true);
 
   const handleOnboardingComplete = () => {
     setHasOnboarded(true);
     localStorage.setItem('askdrkristof_onboarded', 'true');
   };
 
-  const handleSelectMode = (mode: Mode) => {
-    setCurrentMode(mode);
+  const handleStartChat = () => {
+    setCurrentScreen('chat');
+    setChromeVisible(true);
   };
 
-  const handleBack = () => {
-    setCurrentMode(null);
+  const handleResetChat = () => {
+    setCurrentScreen('home');
+    setChromeVisible(true);
   };
+
+  const lockViewport = hasOnboarded && currentScreen === 'chat';
 
   return (
-    <Layout>
+    <Layout chromeVisible={chromeVisible} lockViewport={lockViewport}>
       {!hasOnboarded ? (
         <Onboarding onComplete={handleOnboardingComplete} />
-      ) : currentMode ? (
-        <ChatScreen mode={currentMode} onBack={handleBack} />
+      ) : currentScreen === 'home' ? (
+        <HomeScreen onStartChat={handleStartChat} />
       ) : (
-        <HomeScreen onSelectMode={handleSelectMode} />
+        <ChatScreen
+          key="chat"
+          mode="chat"
+          onReset={handleResetChat}
+          onChromeVisibilityChange={setChromeVisible}
+        />
       )}
     </Layout>
   );

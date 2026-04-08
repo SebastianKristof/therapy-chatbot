@@ -7,6 +7,10 @@ import {
   generateConversationSummary,
   getConfiguredModel,
 } from './askDrKristofService.js';
+import {
+  getConfiguredTranscriptionModel,
+  transcribeAudio,
+} from './openAiTranscriptionService.js';
 
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Uint8Array[] = [];
@@ -48,6 +52,13 @@ export function devApiPlugin(): Plugin {
             const body = await readJsonBody(request);
             const text = await generateConversationSummary(body);
             sendJson(response, 200, { text, model: getConfiguredModel() });
+            return;
+          }
+
+          if (pathname === '/api/transcribe') {
+            const body = await readJsonBody(request);
+            const text = await transcribeAudio(body);
+            sendJson(response, 200, { text, model: getConfiguredTranscriptionModel() });
             return;
           }
 

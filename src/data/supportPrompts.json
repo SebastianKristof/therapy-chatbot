@@ -1,0 +1,20 @@
+{
+  "starterPrompts": [
+    {
+      "label": "Reflect on what came up",
+      "prompt": "I'd like to reflect on what's been coming up for me lately."
+    },
+    {
+      "label": "Work through a trigger",
+      "prompt": "I experienced a trigger and I'd like to work through it."
+    },
+    {
+      "label": "Prepare for next session",
+      "prompt": "I'd like to prepare for my next session with Dr. Kristof."
+    },
+    {
+      "label": "Ask about hypnosis",
+      "prompt": "I have a question about hypnosis or the therapeutic process."
+    }
+  ]
+}

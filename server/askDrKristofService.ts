@@ -1,6 +1,6 @@
 import { createGateway, generateText, type ModelMessage } from 'ai';
 import { APICallError } from '@ai-sdk/provider';
-import { getModeDefinition, SYSTEM_PROMPT_BASE } from '../src/config/modeDefinitions.js';
+import { SYSTEM_PROMPT_BASE } from '../src/config/modeDefinitions.js';
 import type { Message, Mode } from '../src/types.js';
 
 const DEFAULT_GATEWAY_MODEL = 'google/gemini-3-flash';
@@ -22,6 +22,16 @@ export class RequestError extends Error {
     super(message);
     this.name = 'RequestError';
   }
+}
+
+function readConfiguredValue(value: string | undefined) {
+  const normalized = value?.trim();
+
+  if (!normalized || normalized.toLowerCase() === 'undefined' || normalized.toLowerCase() === 'null') {
+    return undefined;
+  }
+
+  return normalized;
 }
 
 function hasGatewayStatusCode(error: unknown): error is { statusCode?: number } {
@@ -90,14 +100,17 @@ export interface ChatPayload {
 
 export interface SummaryPayload {
   history: Message[];
+  mode?: Mode;
 }
 
+type SupportIntent = 'open_conversation' | 'guided_reflection' | 'process_question';
+
 export function getConfiguredModel() {
-  return process.env.AI_GATEWAY_MODEL?.trim() || DEFAULT_GATEWAY_MODEL;
+  return readConfiguredValue(process.env.AI_GATEWAY_MODEL) || DEFAULT_GATEWAY_MODEL;
 }
 
 function getGatewayModel() {
-  const apiKey = process.env.AI_GATEWAY_API_KEY?.trim();
+  const apiKey = readConfiguredValue(process.env.AI_GATEWAY_API_KEY);
 
   if (!apiKey) {
     throw new RequestError(
@@ -152,15 +165,98 @@ function toModelMessages(history: Message[], userInput?: string): ModelMessage[]
   return messages;
 }
 
-function buildChatSystemInstruction(mode: Mode) {
-  const modeDefinition = getModeDefinition(mode);
-  const modeInstruction =
-    modeDefinition?.systemInstruction || 'You are a supportive AI companion.';
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9\s]+/g, ' ');
+}
 
+function resolveSupportIntent(mode: Mode, userInput: string): SupportIntent {
+  const text = normalizeText(`${mode} ${userInput}`);
+  const processHints = [
+    'hypnosis',
+    'process',
+    'normal',
+    'normal?',
+    'is this normal',
+    'should i',
+    'should i be',
+    'what does this mean',
+    'what should i expect',
+    'after session',
+    'medically',
+    'concerned',
+    'weird',
+    'sleep',
+    'deep',
+  ];
+
+  const reflectionHints = [
+    'reflect',
+    'trigger',
+    'reinforce',
+    'prepare',
+    'session',
+    'came up',
+    'what changed',
+    'pattern',
+    'bring this to session',
+    'next session',
+    'what stood out',
+  ];
+
+  if (mode === 'ask_process' || mode === 'ask_experience') {
+    return 'process_question';
+  }
+
+  if (processHints.some((hint) => text.includes(hint))) {
+    return 'process_question';
+  }
+
+  if (reflectionHints.some((hint) => text.includes(hint))) {
+    return 'guided_reflection';
+  }
+
+  if (mode === 'chat') {
+    return 'open_conversation';
+  }
+
+  return 'guided_reflection';
+}
+
+function buildIntentInstruction(intent: SupportIntent) {
+  switch (intent) {
+    case 'process_question':
+      return `
+        The user is asking about hypnosis, the process, or whether an experience is normal.
+        Respond in a calm, direct, bounded way.
+        Normalize common experiences without overexplaining.
+        If there is uncertainty or a safety concern, say so plainly.
+        Keep the answer practical and concise.
+      `;
+
+    case 'guided_reflection':
+      return `
+        The user is in a reflection, trigger, reinforcement, or preparation track.
+        Help them organize what matters, name the pattern, and surface a useful next step.
+        Favor containment, clarity, and session-ready language.
+        Do not over-interpret or try to do full therapy.
+      `;
+
+    case 'open_conversation':
+    default:
+      return `
+        The user wants open conversation.
+        Start by clarifying the core issue if needed.
+        Keep the response human, steady, and useful.
+        Offer one clear next step or question rather than several.
+      `;
+  }
+}
+
+function buildChatSystemInstruction(intent: SupportIntent) {
   return `
     ${SYSTEM_PROMPT_BASE}
-    Current Mode: ${modeDefinition?.title || 'Chat'}
-    Mode Specific Instruction: ${modeInstruction}
+    Current Support Intent: ${intent}
+    Intent Guidance: ${buildIntentInstruction(intent)}
 
     Guidelines for this response:
     - Keep it concise and easy to read.
@@ -177,9 +273,11 @@ export async function generateChatResponse(payload: ChatPayload) {
     throw new RequestError('Request userInput is required.', 400);
   }
 
+  const supportIntent = resolveSupportIntent(payload.mode, payload.userInput);
+
   const { text } = await generateText({
     model: getGatewayModel(),
-    system: buildChatSystemInstruction(payload.mode),
+    system: buildChatSystemInstruction(supportIntent),
     messages: toModelMessages(payload.history, payload.userInput),
     temperature: 0.7,
   });
@@ -189,13 +287,16 @@ export async function generateChatResponse(payload: ChatPayload) {
 
 export async function generateConversationSummary(payload: SummaryPayload) {
   assertValidHistory(payload.history);
+  const lastUserMessage = [...payload.history].reverse().find((message) => message.role === 'user')?.content || '';
+  const supportIntent = resolveSupportIntent(payload.mode || 'chat', lastUserMessage);
 
   const { text } = await generateText({
     model: getGatewayModel(),
     system: `
       ${SYSTEM_PROMPT_BASE}
-      Task: Summarize the key insights, takeaways, or themes from this conversation.
-      Format: A short, thoughtful list of 2-3 points.
+      Task: Summarize the entire conversation, not just the final exchange.
+      Current Support Intent: ${supportIntent}
+      Format: A short, thoughtful list of 2-3 points with a useful closing takeaway.
       Goal: Help the user leave with something useful to reflect on or bring to their next session.
     `,
     messages: toModelMessages(payload.history),
