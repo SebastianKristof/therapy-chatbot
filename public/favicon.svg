@@ -1,0 +1,9 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>AskDrKristof Favicon</title>
+  <rect x="4" y="4" width="56" height="56" rx="18" fill="#5A5A40"/>
+  <path d="M22.391 16.911C27.661 12.126 36.243 11.818 41.846 15.988C47.448 20.158 49.023 28.599 45.562 34.65C42.647 39.745 37.236 42.349 31.403 41.842L24.717 47.089L25.717 40.249C20.647 37.541 17.715 32.111 18.128 26.384C18.403 22.566 19.888 19.185 22.391 16.911Z" fill="#F4F0E7"/>
+  <path d="M28.5 21V39" stroke="#5A5A40" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M28.5 30.5L38 21.75" stroke="#5A5A40" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M28.5 30.5L38.75 39.25" stroke="#5A5A40" stroke-width="4.2" stroke-linecap="round"/>
+  <circle cx="46.5" cy="17.5" r="3.5" fill="#C6B58D"/>
+</svg>

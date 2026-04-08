@@ -12,9 +12,7 @@ export default function Layout({ children, className }: LayoutProps) {
     <div className={cn("min-h-screen bg-bg flex flex-col", className)}>
       <header className="p-6 flex justify-between items-center border-b border-border bg-white/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
-            <span className="text-white font-serif text-sm font-bold italic">K</span>
-          </div>
+          <img src="/logo-mark.svg" alt="AskDrKristof" className="w-9 h-9 shrink-0" />
           <h1 className="text-xl font-serif font-semibold tracking-tight">AskDrKristof</h1>
         </div>
         <div className="text-xs font-sans text-ink-muted uppercase tracking-widest">

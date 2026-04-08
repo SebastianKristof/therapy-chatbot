@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Send, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Message as MessageType, Mode } from '../types';
 import { MODES } from '../constants';
-import { generateResponse, generateSummary } from '../services/geminiService';
+import { generateResponse, generateSummary } from '../services/aiGatewayService';
 import Message from './Message';
 import Summary from './Summary';
 

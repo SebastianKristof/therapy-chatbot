@@ -1,0 +1,32 @@
+<svg width="920" height="280" viewBox="0 0 920 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>AskDrKristof Logo</title>
+  <rect width="920" height="280" rx="32" fill="#F9F8F6"/>
+  <g transform="translate(42 42)">
+    <rect x="0" y="0" width="196" height="196" rx="56" fill="#5A5A40"/>
+    <rect x="5" y="5" width="186" height="186" rx="51" stroke="rgba(244,240,231,0.18)" stroke-width="2"/>
+    <circle cx="55" cy="42" r="46" fill="url(#paint0_radial)" opacity="0.28"/>
+    <path d="M63.3718 45.3577C79.7846 30.4547 106.513 29.4966 123.959 42.4828C141.405 55.4691 146.31 81.7424 135.532 100.572C126.454 116.446 109.598 124.561 91.4174 122.981L70.5825 139.332L73.6982 118.011C57.899 109.57 48.7578 92.6469 50.0462 74.7912C50.9045 62.888 55.5385 52.3422 63.3718 45.3577Z" fill="#F4F0E7"/>
+    <path d="M82.5 58.5V114.5" stroke="#5A5A40" stroke-width="13" stroke-linecap="round"/>
+    <path d="M82.5 88.5L113 60.5" stroke="#5A5A40" stroke-width="13" stroke-linecap="round"/>
+    <path d="M82.5 88.5L114.5 115.5" stroke="#5A5A40" stroke-width="13" stroke-linecap="round"/>
+    <circle cx="151.5" cy="47.5" r="11.5" fill="#C6B58D" opacity="0.95"/>
+  </g>
+  <g transform="translate(286 74)" fill="#1A1A1A">
+    <text x="0" y="78" font-family="Cormorant Garamond, Georgia, 'Times New Roman', serif" font-size="82" font-weight="600" letter-spacing="-1.8">
+      AskDrKristof
+    </text>
+    <text x="2" y="124" font-family="Inter, Helvetica, Arial, sans-serif" font-size="19" font-weight="500" letter-spacing="5.6" fill="#5A5A40">
+      PRIVATE AI COMPANION
+    </text>
+    <path d="M2 153H538" stroke="#D9D3C8" stroke-width="2"/>
+    <text x="0" y="193" font-family="Inter, Helvetica, Arial, sans-serif" font-size="27" font-weight="400" fill="#666666">
+      Quiet guidance between sessions.
+    </text>
+  </g>
+  <defs>
+    <radialGradient id="paint0_radial" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(55 42) rotate(90) scale(46)">
+      <stop stop-color="#F4F0E7"/>
+      <stop offset="1" stop-color="#F4F0E7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
