@@ -1,13 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { IncomingHttpHeaders } from 'node:http';
 import { RequestError } from './askDrKristofService.js';
 
 const ACCESS_CONFIG_PATH = path.join(process.cwd(), 'config', 'accessTokens.txt');
-const ACCESS_BINDINGS_PATH = path.join(process.cwd(), 'server', 'data', 'accessBindings.json');
 
-interface AccessBindings {
-  bindings?: Record<string, string>;
+interface ApprovedAccessEntry {
+  clientToken: string;
+  deviceId?: string;
 }
 
 export interface AccessStatusPayload {
@@ -35,18 +35,27 @@ function parseLineBasedTokens(raw: string) {
     .map((line) => line.replace(/\s+#.*$/, '').trim())
     .filter(Boolean)
     .filter((line) => !line.startsWith('#'))
-    .filter((line) => !line.endsWith(':'))
-    .map(normalizeToken)
-    .filter(Boolean);
+    .filter((line) => !line.endsWith(':'));
+}
+
+function parseApprovedAccessEntries(raw: string): ApprovedAccessEntry[] {
+  return parseLineBasedTokens(raw)
+    .map((line) => line.split(/\s+/).map(normalizeToken).filter(Boolean))
+    .filter((parts) => parts.length > 0)
+    .map((parts) => ({
+      clientToken: parts[0],
+      deviceId: parts[1],
+    }))
+    .filter((entry) => Boolean(entry.clientToken));
 }
 
 function readAccessConfig() {
-  const tokens = new Set<string>();
+  const entries = new Map<string, ApprovedAccessEntry>();
 
   if (existsSync(ACCESS_CONFIG_PATH)) {
     try {
-      for (const token of parseLineBasedTokens(readFileSync(ACCESS_CONFIG_PATH, 'utf8'))) {
-        tokens.add(token);
+      for (const entry of parseApprovedAccessEntries(readFileSync(ACCESS_CONFIG_PATH, 'utf8'))) {
+        entries.set(entry.clientToken, entry);
       }
     } catch {
       // Fall back to env tokens below.
@@ -54,25 +63,10 @@ function readAccessConfig() {
   }
 
   for (const envToken of process.env.APP_APPROVED_TOKENS?.split(',').map((token) => token.trim()).filter(Boolean) || []) {
-    tokens.add(envToken);
+    entries.set(envToken, { clientToken: envToken });
   }
 
-  return [...tokens];
-}
-
-function readBindings() {
-  try {
-    const raw = readFileSync(ACCESS_BINDINGS_PATH, 'utf8');
-    const parsed = JSON.parse(raw) as AccessBindings;
-    return parsed.bindings || {};
-  } catch {
-    return {};
-  }
-}
-
-function writeBindings(bindings: Record<string, string>) {
-  mkdirSync(path.dirname(ACCESS_BINDINGS_PATH), { recursive: true });
-  writeFileSync(ACCESS_BINDINGS_PATH, JSON.stringify({ bindings }, null, 2));
+  return entries;
 }
 
 function readHostHeader(headers: Headers | IncomingHttpHeaders) {
@@ -120,9 +114,10 @@ export function getAccessStatus(headers: ClientAccessHeaders): AccessStatusPaylo
     };
   }
 
-  const approvedTokens = new Set(readAccessConfig());
+  const approvedEntries = readAccessConfig();
+  const approvedEntry = approvedEntries.get(headers.clientToken);
 
-  if (!approvedTokens.has(headers.clientToken)) {
+  if (!approvedEntry) {
     return {
       authorized: false,
       status: 'pending',
@@ -130,26 +125,20 @@ export function getAccessStatus(headers: ClientAccessHeaders): AccessStatusPaylo
     };
   }
 
-  const bindings = readBindings();
-  const boundDeviceId = bindings[headers.clientToken];
-
-  if (boundDeviceId && boundDeviceId !== headers.deviceId) {
+  if (approvedEntry.deviceId && approvedEntry.deviceId !== headers.deviceId) {
     return {
       authorized: false,
       status: 'bound_elsewhere',
-      message: 'This token is already bound to another device. Generate a new token for this device.',
+      message: 'This token is approved for a different device. Add this device pair to config/accessTokens.txt instead.',
     };
-  }
-
-  if (!boundDeviceId) {
-    bindings[headers.clientToken] = headers.deviceId;
-    writeBindings(bindings);
   }
 
   return {
     authorized: true,
     status: 'approved',
-    message: 'Access approved for this device.',
+    message: approvedEntry.deviceId
+      ? 'Access approved for this device.'
+      : 'Access approved. Add the device ID to lock this token to one device.',
   };
 }
 

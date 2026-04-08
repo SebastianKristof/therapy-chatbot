@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, Copy, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Copy, Loader2, RefreshCw } from 'lucide-react';
 import type { AccessStatus } from '../lib/access';
 import { regenerateAccessCredentials } from '../lib/access';
 
@@ -11,10 +11,12 @@ interface AccessScreenProps {
 
 export default function AccessScreen({ accessStatus, onRetry }: AccessScreenProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [isChecking, setIsChecking] = useState(false);
+  const approvalEntry = `${accessStatus.clientToken} ${accessStatus.deviceId}`;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(accessStatus.clientToken);
+      await navigator.clipboard.writeText(approvalEntry);
       setCopyState('copied');
       window.setTimeout(() => setCopyState('idle'), 1400);
     } catch {
@@ -25,6 +27,23 @@ export default function AccessScreen({ accessStatus, onRetry }: AccessScreenProp
   const handleRegenerate = async () => {
     regenerateAccessCredentials();
     await onRetry();
+  };
+
+  const handleCheckApproval = async () => {
+    if (isChecking) {
+      return;
+    }
+
+    setIsChecking(true);
+    const startedAt = Date.now();
+
+    try {
+      await onRetry();
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, 850 - elapsed);
+      window.setTimeout(() => setIsChecking(false), remaining);
+    }
   };
 
   return (
@@ -42,14 +61,14 @@ export default function AccessScreen({ accessStatus, onRetry }: AccessScreenProp
       <div className="space-y-3">
         <h2 className="text-3xl font-serif font-semibold text-ink">Device Approval Required</h2>
         <p className="text-lg leading-relaxed text-ink-muted">
-          Add this device token to `config/accessTokens.txt` before using the app.
+          Add this token and device ID to `config/accessTokens.txt` before using the app.
         </p>
       </div>
 
       <div className="w-full rounded-[2rem] border border-border bg-white/80 p-6 text-left shadow-sm">
-        <div className="text-[10px] uppercase tracking-[0.32em] text-ink-muted">Device Token</div>
+        <div className="text-[10px] uppercase tracking-[0.32em] text-ink-muted">Approval Entry</div>
         <div className="mt-3 break-all rounded-2xl border border-border bg-bg/70 px-4 py-4 font-mono text-sm text-ink">
-          {accessStatus.clientToken}
+          {approvalEntry}
         </div>
         <p className="mt-4 text-sm leading-relaxed text-ink-muted">{accessStatus.message}</p>
       </div>
@@ -65,10 +84,18 @@ export default function AccessScreen({ accessStatus, onRetry }: AccessScreenProp
         </button>
         <button
           type="button"
-          onClick={onRetry}
-          className="inline-flex w-full items-center justify-center rounded-full border border-border bg-white/75 px-5 py-3 text-ink transition-colors hover:bg-white"
+          onClick={handleCheckApproval}
+          disabled={isChecking}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white/75 px-5 py-3 text-ink transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Check approval
+          {isChecking ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Checking...
+            </>
+          ) : (
+            'Check approval'
+          )}
         </button>
         <button
           type="button"

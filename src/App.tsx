@@ -79,6 +79,17 @@ export default function App() {
     }
   }, [accessStatus, currentScreen]);
 
+  useEffect(() => {
+    if (!hasOnboarded || !accessStatus) {
+      return;
+    }
+
+    if (currentScreen === 'chat' && !accessStatus.authorized) {
+      navigateTo('access', true);
+      setChromeVisible(true);
+    }
+  }, [accessStatus, currentScreen, hasOnboarded]);
+
   const handleOnboardingComplete = () => {
     setHasOnboarded(true);
     localStorage.setItem('askdrkristof_onboarded', 'true');
@@ -106,7 +117,7 @@ export default function App() {
         <Onboarding onComplete={handleOnboardingComplete} />
       ) : currentScreen === 'home' ? (
         <HomeScreen onStartChat={handleStartChat} />
-      ) : currentScreen === 'access' ? (
+      ) : currentScreen === 'access' || !accessStatus.authorized ? (
         <AccessScreen accessStatus={accessStatus} onRetry={refreshAccessStatus} />
       ) : (
         <ChatScreen
