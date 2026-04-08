@@ -8,14 +8,19 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "ingest:materials": "tsx scripts/ingestMaterials.ts",
+    "prepare:design-knowledge": "tsx scripts/prepareDesignKnowledge.ts",
+    "ingest:design-knowledge": "tsx scripts/ingestDesignKnowledge.ts"
   },
   "dependencies": {
+    "@llamaindex/openai": "^0.4.22",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "ai": "^6.0.149",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "llamaindex": "^0.12.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",

@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 .vercel
+materials/*
+!materials/.gitkeep
+server/data/knowledge-index/

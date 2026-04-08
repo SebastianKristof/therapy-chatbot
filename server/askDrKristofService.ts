@@ -2,6 +2,8 @@ import { createGateway, generateText, type ModelMessage } from 'ai';
 import { APICallError } from '@ai-sdk/provider';
 import { SYSTEM_PROMPT_BASE } from '../src/config/modeDefinitions.js';
 import type { FollowUpChip, Message, Mode } from '../src/types.js';
+import { formatKnowledgeContext, retrieveKnowledgeContext } from './knowledgeBase.js';
+import { resolveGuidanceForTurn } from './guidanceService.js';
 
 const DEFAULT_GATEWAY_MODEL = 'google/gemini-3-flash';
 const VALID_MODES = new Set<Mode>([
@@ -265,14 +267,25 @@ function buildIntentInstruction(intent: SupportIntent) {
   }
 }
 
-function buildChatSystemInstruction(intent: SupportIntent, contextSummary?: string) {
+function buildChatSystemInstruction(
+  intent: SupportIntent,
+  contextSummary?: string,
+  knowledgeContext?: string,
+  guidanceContext?: string,
+) {
   return `
     ${SYSTEM_PROMPT_BASE}
     Current Support Intent: ${intent}
     Intent Guidance: ${buildIntentInstruction(intent)}
     ${contextSummary ? `Conversation Memory Summary:\n${contextSummary}` : 'Conversation Memory Summary: None yet.'}
+    ${knowledgeContext ? `Retrieved Dr. Kristof Material Context:\n${knowledgeContext}` : 'Retrieved Dr. Kristof Material Context: None for this turn.'}
+    ${guidanceContext ? `Curated Guidance Patterns:\n${guidanceContext}` : 'Curated Guidance Patterns: None for this turn.'}
 
     Guidelines for this response:
+    - If curated guidance patterns are present, treat them as high-priority examples for wording, boundaries, and structure.
+    - For guidance patterns labeled adapt, preserve the core intent while tailoring to the user's exact situation.
+    - If retrieved material context is present, keep the answer consistent with it.
+    - If retrieved material context is absent or insufficient, be transparent about uncertainty and avoid making up source claims.
     - Keep it concise and easy to read.
     - Return valid JSON only. No markdown fences. No extra prose outside the JSON.
     - Use this exact shape: {"answer":"string","followUpChips":[{"label":"string","prompt":"string"}]}.
@@ -374,10 +387,33 @@ export async function generateChatResponse(payload: ChatPayload) {
   }
 
   const supportIntent = resolveSupportIntent(payload.mode, payload.userInput);
+  const guidanceResolution = await resolveGuidanceForTurn({
+    mode: payload.mode,
+    userInput: payload.userInput,
+  });
+
+  if (guidanceResolution.verbatimResponse) {
+    return {
+      text: guidanceResolution.verbatimResponse.text,
+      followUpChips: sanitizeFollowUpChips(guidanceResolution.verbatimResponse.followUpChips),
+    };
+  }
+
+  const retrievedKnowledge = await retrieveKnowledgeContext({
+    mode: payload.mode,
+    userInput: payload.userInput,
+    contextSummary: payload.contextSummary,
+  });
+  const knowledgeContext = formatKnowledgeContext(retrievedKnowledge);
 
   const { text } = await generateText({
     model: getGatewayModel(),
-    system: buildChatSystemInstruction(supportIntent, payload.contextSummary),
+    system: buildChatSystemInstruction(
+      supportIntent,
+      payload.contextSummary,
+      knowledgeContext,
+      guidanceResolution.guidanceContext,
+    ),
     messages: toModelMessages(payload.history, payload.userInput),
     temperature: 0.7,
   });

@@ -2,6 +2,8 @@
 
 AskDrKristof is a Vite + React client for guided reflective chat flows. The frontend now calls local `/api` endpoints, and those endpoints use Vercel AI Gateway so the provider key stays server-side and the active model is selected through environment variables. Voice input uses the OpenAI API for transcription.
 
+The chat backend also supports a LlamaIndex.TS knowledge layer for Dr. Kristof materials: ingest source files, persist an index locally, and retrieve only relevant chunks per user turn.
+
 ## Stack
 
 - React 19
@@ -9,6 +11,7 @@ AskDrKristof is a Vite + React client for guided reflective chat flows. The fron
 - TypeScript
 - Tailwind CSS 4
 - Vercel AI Gateway via the AI SDK (`ai`)
+- LlamaIndex.TS (`llamaindex`) for retrieval over indexed materials
 
 ## Local Dev
 
@@ -37,6 +40,99 @@ Notes:
 - Without `OPENAI_API_KEY`, the voice button still renders, but transcription requests return a configuration message instead of calling OpenAI.
 - Change `AI_GATEWAY_MODEL` to switch providers or models without editing app code.
 - Change `OPENAI_TRANSCRIPTION_MODEL` to swap transcription models without editing app code.
+
+## Knowledge Base Ingestion (LlamaIndex.TS)
+
+This project uses a retrieval-first approach for "trained on my materials":
+
+- Keep the custom chat UX.
+- Index your source materials once.
+- Retrieve the most relevant chunks per turn.
+- Combine retrieval context with rolling conversation memory.
+
+### 1) Add source materials
+
+Put text-like files under [`materials/`](/Users/seb/git_personal/ask-dr-kristof/materials) (supports `.txt`, `.md`, `.mdx`, `.markdown`, `.json`, `.csv`, `.html`, `.htm`).
+
+### 2) Configure env values
+
+In `.env.local`, set:
+
+- `OPENAI_API_KEY` (required for embeddings)
+- optional `MATERIALS_DIR`
+- optional `KNOWLEDGE_INDEX_DIR`
+- optional `KNOWLEDGE_EMBED_MODEL`
+- optional `KNOWLEDGE_CHUNK_SIZE`
+- optional `KNOWLEDGE_CHUNK_OVERLAP`
+- optional `KNOWLEDGE_RETRIEVAL_TOP_K`
+- optional `KNOWLEDGE_BASE_ENABLED`
+
+See [`.env.example`](/Users/seb/git_personal/ask-dr-kristof/.env.example) for defaults.
+
+### 3) Build the index
+
+Run:
+
+```bash
+npm run ingest:materials
+```
+
+Optional overrides:
+
+```bash
+npm run ingest:materials -- --materials ./path/to/materials --index ./path/to/index
+```
+
+By default, index data is persisted under [`server/data/knowledge-index/`](/Users/seb/git_personal/ask-dr-kristof/server/data/knowledge-index) and used automatically by `/api/chat` retrieval.
+
+Both `materials/*` and `server/data/knowledge-index/` are gitignored by default to reduce accidental commits of sensitive source content.
+
+### 4) Chat with retrieval enabled
+
+Start dev server and chat normally:
+
+```bash
+npm run dev
+```
+
+If no index exists (or retrieval is disabled), chat falls back to the existing prompt + rolling context summary behavior.
+
+## Ingest Design PRDs (Split + Tagged)
+
+If you want to ingest the `design/` PRDs using a structured RAG source layout:
+
+1. Generate split, metadata-tagged source docs:
+
+```bash
+npm run prepare:design-knowledge
+```
+
+This creates [`knowledge_sources/design_split/`](/Users/seb/git_personal/ask-dr-kristof/knowledge_sources/design_split) with corpus folders:
+- `policy`
+- `mode_playbook`
+- `examples`
+- `ux_copy`
+
+2. Ingest that generated folder:
+
+```bash
+npm run ingest:design-knowledge
+```
+
+Or manually ingest any folder:
+
+```bash
+npm run ingest:materials -- --materials ./knowledge_sources/design_split
+```
+
+## Curated Guidance (Q/A Examples + Verbatim Answers)
+
+You can add a curated guidance file for stronger behavior than generic retrieval:
+
+- `verbatim` entries: if a match is high-confidence, the app returns your exact stored answer.
+- `adapt` entries: if a match is strong, the app uses your answer as a high-priority response pattern.
+
+For a quick informal setup guide, see [GUIDANCE_README.md](/Users/seb/git_personal/ask-dr-kristof/GUIDANCE_README.md).
 
 ## Checks
 

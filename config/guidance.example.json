@@ -1,0 +1,26 @@
+[
+  {
+    "id": "normal-after-session-check",
+    "mode": "ask_experience",
+    "behavior": "verbatim",
+    "question": "Is it normal to feel emotionally off after a hypnosis session?",
+    "answer": "Yes, this can be normal. Many people feel emotionally stirred, tired, or unusually sensitive for a short period after session work. Keep things light today, hydrate, and note what came up so we can use it productively in session.",
+    "followUpChips": [
+      {
+        "label": "What should I do today?",
+        "prompt": "What should I do today to support myself after this?"
+      },
+      {
+        "label": "When is it not normal?",
+        "prompt": "How can I tell when this goes beyond normal adjustment?"
+      }
+    ]
+  },
+  {
+    "id": "trigger-organization-template",
+    "mode": "trigger",
+    "behavior": "adapt",
+    "question": "I got triggered and now everything feels messy.",
+    "answer": "Start by naming the trigger in one sentence. Then separate facts from interpretations. End with one concrete next action you can take in the next 24 hours. Keep it simple and contained."
+  }
+]
