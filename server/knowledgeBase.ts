@@ -13,6 +13,11 @@ import {
 } from 'llamaindex';
 import { OpenAIEmbedding } from '@llamaindex/openai';
 import type { Mode } from '../src/types.js';
+import {
+  hasEmbeddingCredentials,
+  normalizeEmbeddingModelForProvider,
+  resolveEmbeddingClientConfig,
+} from './embeddingConfig.js';
 
 const DEFAULT_KNOWLEDGE_INDEX_DIR = path.resolve(process.cwd(), 'server/data/knowledge-index');
 const DEFAULT_MATERIALS_DIR = path.resolve(process.cwd(), 'materials');
@@ -59,6 +64,7 @@ export interface KnowledgeIngestionResult {
   indexDir: string;
   indexedFileCount: number;
   totalCharacters: number;
+  embeddingProvider: string;
   embeddingModel: string;
   chunkSize: number;
   chunkOverlap: number;
@@ -296,13 +302,8 @@ async function loadDocumentsFromMaterials(materialsDir: string) {
 }
 
 function configureLlamaIndexEmbedding() {
-  const openAiApiKey = readConfiguredValue(process.env.OPENAI_API_KEY);
-
-  if (!openAiApiKey) {
-    throw new Error('OPENAI_API_KEY is required for knowledge indexing and retrieval embeddings.');
-  }
-
-  const embeddingModel = getEmbedModel();
+  const clientConfig = resolveEmbeddingClientConfig('knowledge indexing and retrieval embeddings');
+  const embeddingModel = normalizeEmbeddingModelForProvider(getEmbedModel(), clientConfig.provider);
   const chunkSize = parsePositiveInt(readConfiguredValue(process.env.KNOWLEDGE_CHUNK_SIZE), DEFAULT_CHUNK_SIZE);
   const requestedChunkOverlap = parseNonNegativeInt(
     readConfiguredValue(process.env.KNOWLEDGE_CHUNK_OVERLAP),
@@ -311,13 +312,15 @@ function configureLlamaIndexEmbedding() {
   const chunkOverlap = Math.min(requestedChunkOverlap, Math.max(0, chunkSize - 1));
 
   Settings.embedModel = new OpenAIEmbedding({
-    apiKey: openAiApiKey,
+    apiKey: clientConfig.apiKey,
+    baseURL: clientConfig.baseURL,
     model: embeddingModel,
   });
   Settings.chunkSize = chunkSize;
   Settings.chunkOverlap = chunkOverlap;
 
   return {
+    embeddingProvider: clientConfig.provider,
     embeddingModel,
     chunkSize,
     chunkOverlap,
@@ -499,7 +502,7 @@ async function createKnowledgeRetriever(): Promise<BaseRetriever | null> {
     return null;
   }
 
-  if (!readConfiguredValue(process.env.OPENAI_API_KEY)) {
+  if (!hasEmbeddingCredentials()) {
     return null;
   }
 
@@ -611,7 +614,7 @@ export async function ingestKnowledgeBase(
     );
   }
 
-  const { embeddingModel, chunkSize, chunkOverlap } = configureLlamaIndexEmbedding();
+  const { embeddingProvider, embeddingModel, chunkSize, chunkOverlap } = configureLlamaIndexEmbedding();
   const documents = await loadDocumentsFromMaterials(materialsDir);
 
   if (documents.length === 0) {
@@ -639,6 +642,7 @@ export async function ingestKnowledgeBase(
     indexDir,
     indexedFileCount: documents.length,
     totalCharacters: documents.reduce((total, document) => total + document.text.length, 0),
+    embeddingProvider,
     embeddingModel,
     chunkSize,
     chunkOverlap,

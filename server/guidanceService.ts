@@ -1,6 +1,12 @@
 import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { FollowUpChip, Mode } from '../src/types.js';
+import {
+  type EmbeddingProvider,
+  hasEmbeddingCredentials,
+  normalizeEmbeddingModelForProvider,
+  resolveEmbeddingClientConfig,
+} from './embeddingConfig.js';
 
 type GuidanceBehavior = 'adapt' | 'verbatim';
 type GuidanceMode = Mode | 'any';
@@ -28,6 +34,14 @@ interface GuidanceFileCache {
   mtimeMs: number;
   entries: GuidanceEntry[];
   embeddingsByEntryId: Map<string, number[]>;
+  embeddingSignature: string;
+}
+
+interface GuidanceEmbeddingRuntimeConfig {
+  provider: EmbeddingProvider;
+  model: string;
+  apiKey: string;
+  endpoint: string;
 }
 
 export interface GuidanceResolution {
@@ -107,12 +121,13 @@ function getGuidanceDataPath() {
   return resolveDirectoryOrFile(process.env.GUIDANCE_DATA_PATH, DEFAULT_GUIDANCE_DATA_PATH);
 }
 
-function getGuidanceEmbeddingModel() {
-  return (
+function getGuidanceEmbeddingModel(provider: EmbeddingProvider) {
+  const model =
     readConfiguredValue(process.env.GUIDANCE_EMBED_MODEL) ||
     readConfiguredValue(process.env.KNOWLEDGE_EMBED_MODEL) ||
-    DEFAULT_GUIDANCE_EMBED_MODEL
-  );
+    DEFAULT_GUIDANCE_EMBED_MODEL;
+
+  return normalizeEmbeddingModelForProvider(model, provider);
 }
 
 function getVerbatimThreshold() {
@@ -331,6 +346,7 @@ async function loadGuidanceEntries() {
       mtimeMs: fileStat.mtimeMs,
       entries,
       embeddingsByEntryId: new Map<string, number[]>(),
+      embeddingSignature: '',
     };
     return entries;
   } catch (error) {
@@ -339,7 +355,7 @@ async function loadGuidanceEntries() {
   }
 }
 
-function extractOpenAIErrorMessage(rawBody: string) {
+function extractEmbeddingsErrorMessage(rawBody: string) {
   try {
     const parsed = JSON.parse(rawBody) as { error?: { message?: string }; message?: string };
     return parsed.error?.message || parsed.message || rawBody;
@@ -348,46 +364,52 @@ function extractOpenAIErrorMessage(rawBody: string) {
   }
 }
 
-async function embedTexts(texts: string[]) {
-  const apiKey = readConfiguredValue(process.env.OPENAI_API_KEY);
+function resolveGuidanceEmbeddingRuntimeConfig(): GuidanceEmbeddingRuntimeConfig {
+  const clientConfig = resolveEmbeddingClientConfig('semantic guidance matching');
+  const model = getGuidanceEmbeddingModel(clientConfig.provider);
+  const endpoint = `${clientConfig.baseURL || 'https://api.openai.com/v1'}/embeddings`;
 
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is required for semantic guidance matching.');
-  }
+  return {
+    provider: clientConfig.provider,
+    model,
+    apiKey: clientConfig.apiKey,
+    endpoint,
+  };
+}
 
+async function embedTexts(texts: string[], runtimeConfig: GuidanceEmbeddingRuntimeConfig) {
   if (texts.length === 0) {
     return [] as number[][];
   }
 
-  const model = getGuidanceEmbeddingModel();
   const allEmbeddings: number[][] = [];
   const batchSize = 64;
 
   for (let index = 0; index < texts.length; index += batchSize) {
     const batch = texts.slice(index, index + batchSize);
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    const response = await fetch(runtimeConfig.endpoint, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${runtimeConfig.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model,
+        model: runtimeConfig.model,
         input: batch,
       }),
     });
     const rawBody = await response.text();
 
     if (!response.ok) {
-      const message = extractOpenAIErrorMessage(rawBody);
-      throw new Error(`OpenAI embeddings request failed: ${message}`);
+      const message = extractEmbeddingsErrorMessage(rawBody);
+      throw new Error(`${runtimeConfig.provider} embeddings request failed: ${message}`);
     }
 
     const parsed = JSON.parse(rawBody) as { data?: Array<{ embedding?: number[] }> };
     const batchEmbeddings = Array.isArray(parsed.data) ? parsed.data.map((item) => item.embedding || []) : [];
 
     if (batchEmbeddings.length !== batch.length || batchEmbeddings.some((embedding) => embedding.length === 0)) {
-      throw new Error('OpenAI embeddings response was invalid.');
+      throw new Error(`${runtimeConfig.provider} embeddings response was invalid.`);
     }
 
     allEmbeddings.push(...batchEmbeddings);
@@ -396,23 +418,41 @@ async function embedTexts(texts: string[]) {
   return allEmbeddings;
 }
 
-async function ensureCachedEmbeddings(entries: GuidanceEntry[]) {
+async function ensureCachedEmbeddings(entries: GuidanceEntry[]): Promise<GuidanceEmbeddingRuntimeConfig | null> {
   if (!guidanceCache || entries.length === 0) {
-    return false;
+    return null;
   }
 
-  if (!readConfiguredValue(process.env.OPENAI_API_KEY)) {
-    return false;
+  if (!hasEmbeddingCredentials()) {
+    return null;
+  }
+
+  let runtimeConfig: GuidanceEmbeddingRuntimeConfig;
+
+  try {
+    runtimeConfig = resolveGuidanceEmbeddingRuntimeConfig();
+  } catch {
+    return null;
+  }
+
+  const embeddingSignature = `${runtimeConfig.provider}:${runtimeConfig.model}`;
+
+  if (guidanceCache.embeddingSignature !== embeddingSignature) {
+    guidanceCache.embeddingsByEntryId.clear();
+    guidanceCache.embeddingSignature = embeddingSignature;
   }
 
   const missing = entries.filter((entry) => !guidanceCache?.embeddingsByEntryId.has(entry.id));
 
   if (missing.length === 0) {
-    return true;
+    return runtimeConfig;
   }
 
   try {
-    const embeddings = await embedTexts(missing.map((entry) => entry.question));
+    const embeddings = await embedTexts(
+      missing.map((entry) => entry.question),
+      runtimeConfig,
+    );
 
     missing.forEach((entry, index) => {
       const vector = embeddings[index];
@@ -422,10 +462,10 @@ async function ensureCachedEmbeddings(entries: GuidanceEntry[]) {
       }
     });
 
-    return true;
+    return runtimeConfig;
   } catch (error) {
     console.warn('Semantic guidance embeddings are unavailable. Falling back to lexical matching only.', error);
-    return false;
+    return null;
   }
 }
 
@@ -499,12 +539,12 @@ export async function resolveGuidanceForTurn({
     return { guidanceContext: '' };
   }
 
-  const canUseSemantic = await ensureCachedEmbeddings(entries);
+  const embeddingRuntimeConfig = await ensureCachedEmbeddings(entries);
   let queryEmbedding: number[] | undefined;
 
-  if (canUseSemantic) {
+  if (embeddingRuntimeConfig) {
     try {
-      const [embedding] = await embedTexts([normalizedInput]);
+      const [embedding] = await embedTexts([normalizedInput], embeddingRuntimeConfig);
       queryEmbedding = embedding;
     } catch (error) {
       console.warn('Query embedding failed for guidance matching. Using lexical score only.', error);

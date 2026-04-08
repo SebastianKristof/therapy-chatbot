@@ -62,6 +62,7 @@ The server reloads guidance when `materials/guidance.json` changes.
 
 In `.env.local`:
 
+- `EMBEDDING_PROVIDER=openai` or `gateway` (semantic matching uses this)
 - `GUIDANCE_VERBATIM_THRESHOLD=0.90` (higher = stricter exact-answer matching)
 - `GUIDANCE_ADAPT_THRESHOLD=0.78` (higher = fewer adapt matches)
 - `GUIDANCE_MATCH_LIMIT=3` (max adapt examples used per turn)

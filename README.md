@@ -20,7 +20,7 @@ Prerequisites:
 - Node.js 22.x or newer
 - npm 11.x or newer
 - A Vercel AI Gateway API key
-- An OpenAI API key for voice transcription
+- An OpenAI API key only if you use voice transcription or `EMBEDDING_PROVIDER=openai`
 
 Setup:
 
@@ -28,16 +28,17 @@ Setup:
 2. Create `.env.local` in the repo root
 3. Add `AI_GATEWAY_API_KEY=your_key_here` to `.env.local`
 4. Add `AI_GATEWAY_MODEL=google/gemini-3-flash` to `.env.local`
-5. Add `OPENAI_API_KEY=your_openai_key_here` to `.env.local`
-6. Optionally set `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`
-7. Start the app with `npm run dev`
+5. Add `EMBEDDING_PROVIDER=openai` (or `gateway`)
+6. Add `OPENAI_API_KEY=your_openai_key_here` if using voice or `EMBEDDING_PROVIDER=openai`
+7. Optionally set `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`
+8. Start the app with `npm run dev`
 
 Notes:
 
 - The dev server prefers port `3000` and will automatically move to the next free port if `3000` is already in use.
 - Local `npm run dev` includes Vite middleware that serves `/api/chat` and `/api/summary`, so you do not need `vercel dev` just to test the app locally.
 - Without `AI_GATEWAY_API_KEY`, the UI still loads locally, but chat requests return a configuration message instead of calling the gateway.
-- Without `OPENAI_API_KEY`, the voice button still renders, but transcription requests return a configuration message instead of calling OpenAI.
+- Without `OPENAI_API_KEY`, voice transcription is disabled; embeddings are also disabled if `EMBEDDING_PROVIDER=openai`.
 - Change `AI_GATEWAY_MODEL` to switch providers or models without editing app code.
 - Change `OPENAI_TRANSCRIPTION_MODEL` to swap transcription models without editing app code.
 
@@ -58,7 +59,10 @@ Put text-like files under [`materials/`](/Users/seb/git_personal/ask-dr-kristof/
 
 In `.env.local`, set:
 
-- `OPENAI_API_KEY` (required for embeddings)
+- `EMBEDDING_PROVIDER` (`openai` or `gateway`, default `openai`)
+- `OPENAI_API_KEY` (required for embeddings when provider is `openai`)
+- `AI_GATEWAY_API_KEY` or `EMBEDDING_GATEWAY_API_KEY` (required for embeddings when provider is `gateway`)
+- optional `EMBEDDING_GATEWAY_BASE_URL` (defaults to `https://ai-gateway.vercel.sh/v1`)
 - optional `MATERIALS_DIR`
 - optional `KNOWLEDGE_INDEX_DIR`
 - optional `KNOWLEDGE_EMBED_MODEL`

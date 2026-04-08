@@ -32,6 +32,7 @@ async function main() {
   console.log(`Index directory: ${ingestResult.indexDir}`);
   console.log(`Indexed files: ${ingestResult.indexedFileCount}`);
   console.log(`Total characters: ${ingestResult.totalCharacters}`);
+  console.log(`Embedding provider: ${ingestResult.embeddingProvider}`);
   console.log(`Embedding model: ${ingestResult.embeddingModel}`);
   console.log(`Chunk size: ${ingestResult.chunkSize}`);
   console.log(`Chunk overlap: ${ingestResult.chunkOverlap}`);
