@@ -7,3 +7,6 @@ adk_71001253081e42449fe69ed1ad587ce2 device_9bc90115547041e18a3447bfa6ada84e
 
 # samsung sk
 adk_591aa4e1fb864ef08b11f6b583ce5bb5 device_da50d1dbe4074fdfac96bdf4b0d8a702
+
+# veronica phone
+adk_0154475b10074668bda7345355acb66a device_0e19b5d0e9d34365b48f1c0bf7a1d094
