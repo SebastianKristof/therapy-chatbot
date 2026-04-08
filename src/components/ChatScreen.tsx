@@ -538,7 +538,7 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
 
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 px-4 pb-3 pointer-events-none md:pb-4">
+      <div className="fixed inset-x-0 bottom-16 z-20 px-4 pointer-events-none md:bottom-20">
         <div className="mx-auto w-full max-w-2xl pointer-events-auto">
           {isRecording ? (
             <div className="mb-3 flex justify-end">
@@ -569,22 +569,22 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
             </div>
           ) : null}
 
-          <div className="rounded-[32px] bg-bg/85 p-1 shadow-[0_12px_32px_rgba(68,60,44,0.08)] backdrop-blur-md">
-            <form onSubmit={handleSend} className="relative">
-              <textarea
-                ref={composerRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                placeholder="Type here..."
-                rows={1}
-                className="w-full bg-white/80 border border-border rounded-[28px] px-6 py-3.5 pr-28 focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all font-sans text-ink resize-none overflow-hidden leading-6"
-              />
+          <form onSubmit={handleSend} className="relative">
+            <textarea
+              ref={composerRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              placeholder="Type here..."
+              rows={1}
+              className="w-full rounded-[28px] border border-border bg-white/92 px-6 py-3.5 pr-28 font-sans leading-6 text-ink shadow-[0_12px_32px_rgba(68,60,44,0.08)] transition-all resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+            <div className="absolute right-2 top-1/2 flex -translate-y-[56%] items-center gap-2">
               <button
                 type="button"
                 onClick={toggleRecording}
@@ -592,7 +592,7 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
                 aria-pressed={isRecording}
                 aria-label={isRecording ? 'Stop recording' : 'Start recording voice input'}
                 title={isRecording ? 'Stop recording' : 'Record voice input'}
-                className={`absolute right-14 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-all disabled:opacity-50 ${
                   isRecording
                     ? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
                     : 'bg-accent-light text-accent hover:bg-accent-light/80'
@@ -619,12 +619,12 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading || isRecording || isTranscribing}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent text-white rounded-full flex items-center justify-center disabled:opacity-50 transition-all"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white transition-all disabled:opacity-50"
               >
                 <Send size={18} />
               </button>
-            </form>
-          </div>
+            </div>
+          </form>
         </div>
       </div>
     </motion.div>
