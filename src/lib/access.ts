@@ -1,15 +1,6 @@
 const ACCESS_TOKEN_KEY = 'askdrkristof_access_token';
 const DEVICE_ID_KEY = 'askdrkristof_device_id';
 
-export function isLocalDevelopmentHost() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const { hostname } = window.location;
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-}
-
 function generatePrefixedId(prefix: string) {
   const random = globalThis.crypto?.randomUUID?.().replace(/-/g, '') || `${Date.now()}${Math.random().toString(16).slice(2)}`;
   return `${prefix}_${random}`;
@@ -69,16 +60,6 @@ export function getAccessHeaders() {
 
 export async function fetchAccessStatus(): Promise<AccessStatus> {
   const credentials = readOrCreateAccessCredentials();
-
-  if (isLocalDevelopmentHost()) {
-    return {
-      authorized: true,
-      clientToken: credentials.clientToken,
-      deviceId: credentials.deviceId,
-      message: 'Local development bypass is active.',
-      status: 'approved',
-    };
-  }
 
   const response = await fetch('/api/access', {
     headers: getAccessHeaders(),

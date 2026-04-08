@@ -4,7 +4,7 @@ import AccessScreen from './components/AccessScreen';
 import Onboarding from './components/Onboarding';
 import HomeScreen from './components/HomeScreen';
 import ChatScreen from './components/ChatScreen';
-import { fetchAccessStatus, isLocalDevelopmentHost, type AccessStatus } from './lib/access';
+import { fetchAccessStatus, type AccessStatus } from './lib/access';
 
 type Screen = 'home' | 'access' | 'chat';
 
@@ -85,7 +85,7 @@ export default function App() {
   };
 
   const handleStartChat = () => {
-    if (isLocalDevelopmentHost() || accessStatus?.authorized) {
+    if (accessStatus?.authorized) {
       navigateTo('chat');
     } else {
       navigateTo('access');

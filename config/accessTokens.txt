@@ -1,1 +1,3 @@
 # Add one approved device token per line.
+adk_71001253081e42449fe69ed1ad587ce2 # MacBook
+adk_591aa4e1fb864ef08b11f6b583ce5bb5 # sk samsung

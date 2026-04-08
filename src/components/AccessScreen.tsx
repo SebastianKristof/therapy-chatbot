@@ -55,14 +55,26 @@ export default function AccessScreen({ accessStatus, onRetry }: AccessScreenProp
       </div>
 
       <div className="flex w-full max-w-sm flex-col gap-3">
-        <button type="button" onClick={handleCopy} className="btn-primary w-full">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-white shadow-sm transition-all hover:opacity-90 active:scale-[0.99]"
+        >
           <Copy size={16} />
           {copyState === 'copied' ? 'Copied' : 'Copy token'}
         </button>
-        <button type="button" onClick={onRetry} className="btn-ghost w-full">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex w-full items-center justify-center rounded-full border border-border bg-white/75 px-5 py-3 text-ink transition-colors hover:bg-white"
+        >
           Check approval
         </button>
-        <button type="button" onClick={handleRegenerate} className="btn-ghost w-full">
+        <button
+          type="button"
+          onClick={handleRegenerate}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white/75 px-5 py-3 text-ink transition-colors hover:bg-white"
+        >
           <RefreshCw size={16} />
           Generate new token
         </button>
