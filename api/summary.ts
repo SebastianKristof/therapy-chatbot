@@ -4,6 +4,7 @@ import {
   generateConversationSummary,
   getConfiguredModel,
 } from '../server/askDrKristofService.js';
+import { assertAuthorizedRequest } from '../server/accessControl.js';
 
 function json(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
@@ -16,6 +17,7 @@ function json(status: number, payload: unknown) {
 
 export async function POST(request: Request) {
   try {
+    assertAuthorizedRequest(request.headers);
     const body = await request.json();
     const text = await generateConversationSummary(body);
 

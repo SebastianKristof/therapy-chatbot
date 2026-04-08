@@ -1,9 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin } from 'vite';
+import { assertAuthorizedRequest, getAccessStatus, readClientAccessHeaders } from './accessControl.js';
 import {
   normalizeGatewayError,
   RequestError,
   generateChatResponse,
+  generateRollingContextSummary,
   generateConversationSummary,
   getConfiguredModel,
 } from './askDrKristofService.js';
@@ -34,14 +36,25 @@ export function devApiPlugin(): Plugin {
     name: 'ask-dr-kristof-dev-api',
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
-        if (request.method !== 'POST' || !request.url) {
+        if (!request.url) {
           return next();
         }
 
         const pathname = request.url.split('?')[0];
 
+        if (request.method === 'GET' && pathname === '/api/access') {
+          const status = getAccessStatus(readClientAccessHeaders(request.headers));
+          sendJson(response, status.authorized ? 200 : 401, status);
+          return;
+        }
+
+        if (request.method !== 'POST') {
+          return next();
+        }
+
         try {
           if (pathname === '/api/chat') {
+            assertAuthorizedRequest(request.headers);
             const body = await readJsonBody(request);
             const completion = await generateChatResponse(body);
             sendJson(response, 200, {
@@ -53,13 +66,23 @@ export function devApiPlugin(): Plugin {
           }
 
           if (pathname === '/api/summary') {
+            assertAuthorizedRequest(request.headers);
             const body = await readJsonBody(request);
             const text = await generateConversationSummary(body);
             sendJson(response, 200, { text, model: getConfiguredModel() });
             return;
           }
 
+          if (pathname === '/api/context-summary') {
+            assertAuthorizedRequest(request.headers);
+            const body = await readJsonBody(request);
+            const text = await generateRollingContextSummary(body);
+            sendJson(response, 200, { text, model: getConfiguredModel() });
+            return;
+          }
+
           if (pathname === '/api/transcribe') {
+            assertAuthorizedRequest(request.headers);
             const body = await readJsonBody(request);
             const text = await transcribeAudio(body);
             sendJson(response, 200, { text, model: getConfiguredTranscriptionModel() });

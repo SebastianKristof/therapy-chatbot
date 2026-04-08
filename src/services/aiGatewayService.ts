@@ -1,4 +1,5 @@
 import { FollowUpChip, Message, Mode } from '../types';
+import { getAccessHeaders } from '../lib/access';
 
 interface TextResponse {
   text?: string;
@@ -17,6 +18,7 @@ async function postJson(url: string, payload: unknown) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAccessHeaders(),
     },
     body: JSON.stringify(payload),
   });
@@ -33,13 +35,15 @@ async function postJson(url: string, payload: unknown) {
 export async function generateResponse(
   mode: Mode,
   history: Message[],
-  userInput: string
+  userInput: string,
+  contextSummary?: string,
 ): Promise<ChatCompletion> {
   try {
     const data = await postJson('/api/chat', {
       mode,
       history,
       userInput,
+      contextSummary,
     });
 
     return {
@@ -63,9 +67,9 @@ export async function generateResponse(
   }
 }
 
-export async function generateSummary(history: Message[], mode?: Mode): Promise<string> {
+export async function generateSummary(history: Message[], mode?: Mode, contextSummary?: string): Promise<string> {
   try {
-    const data = await postJson('/api/summary', { history, mode });
+    const data = await postJson('/api/summary', { history, mode, contextSummary });
     return data.text || 'No summary available.';
   } catch (error) {
     console.error('AI Gateway summary error:', error);
@@ -75,5 +79,24 @@ export async function generateSummary(history: Message[], mode?: Mode): Promise<
     }
 
     return 'Summary unavailable.';
+  }
+}
+
+export async function generateContextSummary(
+  history: Message[],
+  mode?: Mode,
+  existingSummary?: string,
+): Promise<string> {
+  try {
+    const data = await postJson('/api/context-summary', {
+      history,
+      mode,
+      existingSummary,
+    });
+
+    return data.text || existingSummary || '';
+  } catch (error) {
+    console.error('AI Gateway context summary error:', error);
+    return existingSummary || '';
   }
 }

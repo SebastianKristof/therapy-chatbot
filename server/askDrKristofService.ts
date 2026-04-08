@@ -96,11 +96,19 @@ export interface ChatPayload {
   mode: Mode;
   history: Message[];
   userInput: string;
+  contextSummary?: string;
 }
 
 export interface SummaryPayload {
   history: Message[];
   mode?: Mode;
+  contextSummary?: string;
+}
+
+export interface ContextSummaryRequestPayload {
+  history: Message[];
+  mode?: Mode;
+  existingSummary?: string;
 }
 
 export interface ChatCompletionPayload {
@@ -257,11 +265,12 @@ function buildIntentInstruction(intent: SupportIntent) {
   }
 }
 
-function buildChatSystemInstruction(intent: SupportIntent) {
+function buildChatSystemInstruction(intent: SupportIntent, contextSummary?: string) {
   return `
     ${SYSTEM_PROMPT_BASE}
     Current Support Intent: ${intent}
     Intent Guidance: ${buildIntentInstruction(intent)}
+    ${contextSummary ? `Conversation Memory Summary:\n${contextSummary}` : 'Conversation Memory Summary: None yet.'}
 
     Guidelines for this response:
     - Keep it concise and easy to read.
@@ -368,7 +377,7 @@ export async function generateChatResponse(payload: ChatPayload) {
 
   const { text } = await generateText({
     model: getGatewayModel(),
-    system: buildChatSystemInstruction(supportIntent),
+    system: buildChatSystemInstruction(supportIntent, payload.contextSummary),
     messages: toModelMessages(payload.history, payload.userInput),
     temperature: 0.7,
   });
@@ -388,6 +397,7 @@ export async function generateConversationSummary(payload: SummaryPayload) {
       Task: Summarize the entire conversation, not just the final exchange.
       Current Support Intent: ${supportIntent}
       Goal: Help the user leave with something useful to reflect on or bring to their next session.
+      ${payload.contextSummary ? `Earlier Conversation Memory Summary:\n${payload.contextSummary}` : 'Earlier Conversation Memory Summary: None.'}
 
       Return markdown with exactly these four section headings:
       ## Main Issue
@@ -409,4 +419,30 @@ export async function generateConversationSummary(payload: SummaryPayload) {
   });
 
   return text || 'No summary available.';
+}
+
+export async function generateRollingContextSummary(payload: ContextSummaryRequestPayload) {
+  assertValidHistory(payload.history);
+
+  const { text } = await generateText({
+    model: getGatewayModel(),
+    system: `
+      ${SYSTEM_PROMPT_BASE}
+      Task: Maintain a compact rolling conversation memory summary for future chat turns.
+      Goal: Preserve the core issue, important patterns, process questions, emotionally relevant details, and anything worth bringing to session.
+      Existing Summary:
+      ${payload.existingSummary || 'None yet.'}
+
+      Requirements:
+      - Merge the existing summary with the new archived messages.
+      - Keep the result under 180 words.
+      - Focus on durable context, not sentence-level recap.
+      - Mention unresolved questions or themes if they matter.
+      - Return plain text only.
+    `,
+    messages: toModelMessages(payload.history),
+    temperature: 0.3,
+  });
+
+  return text?.trim() || payload.existingSummary || '';
 }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Loader2, Mic, MoreVertical, Send, Square } from 'lucide-react';
 import { Message as MessageType, Mode } from '../types';
-import { generateResponse, generateSummary } from '../services/aiGatewayService';
+import { generateContextSummary, generateResponse, generateSummary } from '../services/aiGatewayService';
 import { transcribeRecording } from '../services/openAiTranscriptionService';
 import Message from './Message';
 import Summary from './Summary';
@@ -14,6 +14,8 @@ interface ChatScreenProps {
   onReset: () => void;
   onChromeVisibilityChange: (visible: boolean) => void;
 }
+
+const RECENT_HISTORY_LIMIT = 8;
 
 export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: ChatScreenProps) {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -27,6 +29,8 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
   const [soundLevel, setSoundLevel] = useState(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [requestNotice, setRequestNotice] = useState<string | null>(null);
+  const [contextSummary, setContextSummary] = useState('');
+  const [archivedMessageCount, setArchivedMessageCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -37,6 +41,16 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
   const analyserRef = useRef<AnalyserNode | null>(null);
   const meterFrameRef = useRef<number | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const contextSummaryRef = useRef('');
+  const archivedMessageCountRef = useRef(0);
+
+  useEffect(() => {
+    contextSummaryRef.current = contextSummary;
+  }, [contextSummary]);
+
+  useEffect(() => {
+    archivedMessageCountRef.current = archivedMessageCount;
+  }, [archivedMessageCount]);
 
   useEffect(() => {
     return () => {
@@ -280,6 +294,43 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
     await sendMessage(input);
   };
 
+  const flushArchivedMessages = async (sourceMessages: MessageType[]) => {
+    const archiveBoundary = Math.max(0, sourceMessages.length - RECENT_HISTORY_LIMIT);
+    const currentArchivedCount = archivedMessageCountRef.current;
+
+    if (archiveBoundary <= currentArchivedCount) {
+      return {
+        nextSummary: contextSummaryRef.current,
+        nextArchivedCount: currentArchivedCount,
+      };
+    }
+
+    const archivedSlice = sourceMessages.slice(currentArchivedCount, archiveBoundary);
+
+    if (archivedSlice.length === 0) {
+      return {
+        nextSummary: contextSummaryRef.current,
+        nextArchivedCount: currentArchivedCount,
+      };
+    }
+
+    const nextSummary = await generateContextSummary(
+      archivedSlice,
+      mode,
+      contextSummaryRef.current || undefined,
+    );
+
+    setContextSummary(nextSummary);
+    setArchivedMessageCount(archiveBoundary);
+    contextSummaryRef.current = nextSummary;
+    archivedMessageCountRef.current = archiveBoundary;
+
+    return {
+      nextSummary,
+      nextArchivedCount: archiveBoundary,
+    };
+  };
+
   const sendMessage = async (text: string) => {
     const normalizedText = text.trim();
 
@@ -302,7 +353,9 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
     setIsLoading(true);
 
     try {
-      const response = await generateResponse(mode, messages, normalizedText);
+      const { nextSummary, nextArchivedCount } = await flushArchivedMessages(messages);
+      const trimmedHistory = messages.slice(nextArchivedCount);
+      const response = await generateResponse(mode, trimmedHistory, normalizedText, nextSummary || undefined);
 
       const assistantMessage: MessageType = {
         id: (Date.now() + 1).toString(),
@@ -322,7 +375,12 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
     setIsEnding(true);
 
     try {
-      const sessionSummary = await generateSummary(messages, mode);
+      const { nextSummary, nextArchivedCount } = await flushArchivedMessages(messages);
+      const sessionSummary = await generateSummary(
+        messages.slice(nextArchivedCount),
+        mode,
+        nextSummary || undefined,
+      );
       setSummary(sessionSummary);
     } finally {
       setIsEnding(false);
@@ -331,6 +389,10 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
 
   const handleReset = () => {
     setRequestNotice(null);
+    setContextSummary('');
+    setArchivedMessageCount(0);
+    contextSummaryRef.current = '';
+    archivedMessageCountRef.current = 0;
     onReset();
   };
 

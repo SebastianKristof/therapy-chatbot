@@ -1,3 +1,5 @@
+import { getAccessHeaders } from '../lib/access';
+
 interface TranscriptionResponse {
   error?: string;
   model?: string;
@@ -9,6 +11,7 @@ async function postJson(url: string, payload: unknown) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAccessHeaders(),
     },
     body: JSON.stringify(payload),
   });

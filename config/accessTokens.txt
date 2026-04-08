@@ -1,0 +1,1 @@
+# Add one approved device token per line.

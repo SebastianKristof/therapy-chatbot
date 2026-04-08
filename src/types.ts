@@ -12,6 +12,10 @@ export interface FollowUpChip {
   prompt: string;
 }
 
+export interface ContextSummaryPayload {
+  contextSummary?: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';

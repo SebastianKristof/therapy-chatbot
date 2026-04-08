@@ -1,6 +1,7 @@
 import {
   RequestError,
 } from '../server/askDrKristofService.js';
+import { assertAuthorizedRequest } from '../server/accessControl.js';
 import {
   getConfiguredTranscriptionModel,
   transcribeAudio,
@@ -17,6 +18,7 @@ function json(status: number, payload: unknown) {
 
 export async function POST(request: Request) {
   try {
+    assertAuthorizedRequest(request.headers);
     const body = await request.json();
     const text = await transcribeAudio(body);
 
