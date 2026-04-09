@@ -6,6 +6,7 @@ import { formatKnowledgeContext, retrieveKnowledgeContext } from './knowledgeBas
 import { resolveGuidanceForTurn } from './guidanceService.js';
 
 const DEFAULT_GATEWAY_MODEL = 'google/gemini-3-flash';
+const LONG_DASH_PATTERN = /[—–‒―]/g;
 const VALID_MODES = new Set<Mode>([
   'reflect',
   'trigger',
@@ -306,6 +307,7 @@ function buildChatSystemInstruction(
     - Structure the answer as 2-3 short paragraphs by default.
     - Use markdown formatting naturally: use **bold** and *italics* for emphasis, and short lists when they improve clarity.
     - Do not force formatting into every response; keep it human and avoid over-structured output.
+    - Never use long dashes (— or –). Use commas, periods, or a simple hyphen (-) instead.
     - Return valid JSON only. No markdown fences. No extra prose outside the JSON.
     - Use this exact shape: {"answer":"string","followUpChips":[{"label":"string","prompt":"string"}]}.
     - The answer should be the assistant reply shown in chat.
@@ -335,6 +337,10 @@ function extractJsonObject(raw: string) {
   return trimmed;
 }
 
+function normalizeGeneratedText(value: string) {
+  return value.replace(LONG_DASH_PATTERN, '-');
+}
+
 function sanitizeFollowUpChips(value: unknown): FollowUpChip[] {
   if (!Array.isArray(value)) {
     return [];
@@ -349,8 +355,8 @@ function sanitizeFollowUpChips(value: unknown): FollowUpChip[] {
     }
 
     const candidate = item as Record<string, unknown>;
-    const label = typeof candidate.label === 'string' ? candidate.label.trim() : '';
-    const prompt = typeof candidate.prompt === 'string' ? candidate.prompt.trim() : '';
+    const label = typeof candidate.label === 'string' ? normalizeGeneratedText(candidate.label).trim() : '';
+    const prompt = typeof candidate.prompt === 'string' ? normalizeGeneratedText(candidate.prompt).trim() : '';
 
     if (!label || !prompt) {
       continue;
@@ -379,7 +385,7 @@ function sanitizeFollowUpChips(value: unknown): FollowUpChip[] {
 function parseChatCompletion(raw: string): ChatCompletionPayload {
   try {
     const parsed = JSON.parse(extractJsonObject(raw)) as Record<string, unknown>;
-    const text = typeof parsed.answer === 'string' ? parsed.answer.trim() : '';
+    const text = typeof parsed.answer === 'string' ? normalizeGeneratedText(parsed.answer).trim() : '';
 
     if (!text) {
       throw new Error('Missing answer field.');
@@ -391,7 +397,7 @@ function parseChatCompletion(raw: string): ChatCompletionPayload {
     };
   } catch {
     return {
-      text: raw || "I'm sorry, I couldn't generate a response. Please try again.",
+      text: normalizeGeneratedText(raw || "I'm sorry, I couldn't generate a response. Please try again."),
       followUpChips: [],
     };
   }
@@ -414,7 +420,7 @@ export async function generateChatResponse(payload: ChatPayload) {
 
   if (guidanceResolution.verbatimResponse) {
     const baseResponse: ChatCompletionPayload = {
-      text: guidanceResolution.verbatimResponse.text,
+      text: normalizeGeneratedText(guidanceResolution.verbatimResponse.text),
       followUpChips: sanitizeFollowUpChips(guidanceResolution.verbatimResponse.followUpChips),
     };
 
@@ -508,7 +514,7 @@ export async function generateConversationSummary(payload: SummaryPayload) {
     temperature: 0.5,
   });
 
-  return text || 'No summary available.';
+  return normalizeGeneratedText(text || 'No summary available.');
 }
 
 export async function generateRollingContextSummary(payload: ContextSummaryRequestPayload) {
@@ -534,5 +540,5 @@ export async function generateRollingContextSummary(payload: ContextSummaryReque
     temperature: 0.3,
   });
 
-  return text?.trim() || payload.existingSummary || '';
+  return normalizeGeneratedText(text?.trim() || payload.existingSummary || '');
 }
