@@ -16,6 +16,57 @@ interface ChatScreenProps {
 }
 
 const RECENT_HISTORY_LIMIT = 8;
+const CHIP_PLACEHOLDER_PATTERN = /\{\{\s*([^{}]+?)\s*\}\}|\[\s*([^[\]]+?)\s*\]|<\s*([^<>]+?)\s*>/g;
+
+function extractChipPlaceholderLabels(prompt: string) {
+  const labels: string[] = [];
+  const seen = new Set<string>();
+
+  CHIP_PLACEHOLDER_PATTERN.lastIndex = 0;
+
+  for (const match of prompt.matchAll(CHIP_PLACEHOLDER_PATTERN)) {
+    const rawLabel = (match[1] || match[2] || match[3] || '')
+      .trim()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ');
+    const normalizedLabel = rawLabel.toLowerCase();
+
+    if (!rawLabel || seen.has(normalizedLabel)) {
+      continue;
+    }
+
+    seen.add(normalizedLabel);
+    labels.push(rawLabel);
+  }
+
+  return labels;
+}
+
+function buildChipFollowUpQuestion(prompt: string) {
+  const placeholderLabels = extractChipPlaceholderLabels(prompt);
+
+  if (placeholderLabels.length === 0) {
+    return null;
+  }
+
+  if (placeholderLabels.length === 1) {
+    const label = placeholderLabels[0];
+    const normalizedLabel = label.toLowerCase();
+    const startsWithArticle =
+      normalizedLabel.startsWith('the ') ||
+      normalizedLabel.startsWith('a ') ||
+      normalizedLabel.startsWith('an ') ||
+      normalizedLabel.startsWith('your ');
+
+    if (startsWithArticle) {
+      return `What is ${label}?`;
+    }
+
+    return `What is the ${label}?`;
+  }
+
+  return `Could you share these details: ${placeholderLabels.join(', ')}?`;
+}
 
 export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: ChatScreenProps) {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -409,6 +460,25 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
     setIsActionMenuOpen(false);
   };
 
+  const handleActionChipClick = (prompt: { prompt: string }) => {
+    const followUpQuestion = buildChipFollowUpQuestion(prompt.prompt);
+
+    if (!followUpQuestion) {
+      void sendMessage(prompt.prompt);
+      return;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-chip-follow-up`,
+        role: 'assistant',
+        content: followUpQuestion,
+        timestamp: Date.now(),
+      },
+    ]);
+  };
+
   if (summary) {
     return <Summary summary={summary} messages={messages} title="ask-dr-kristof" onDone={handleReset} />;
   }
@@ -512,7 +582,7 @@ export default function ChatScreen({ mode, onReset, onChromeVisibilityChange }: 
                 message={msg}
                 actionChips={msg.role === 'assistant' ? msg.followUpChips ?? [] : []}
                 onActionChipClick={(prompt) => {
-                  void sendMessage(prompt.prompt);
+                  handleActionChipClick(prompt);
                 }}
               />
               {msg.role === 'assistant' && msg.ragDebug ? (
