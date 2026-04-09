@@ -303,6 +303,9 @@ function buildChatSystemInstruction(
     - If retrieved material context is present, keep the answer consistent with it.
     - If retrieved material context is absent or insufficient, be transparent about uncertainty and avoid making up source claims.
     - Keep it concise and easy to read.
+    - Structure the answer as 2-3 short paragraphs by default.
+    - Use markdown formatting naturally: use **bold** and *italics* for emphasis, and short lists when they improve clarity.
+    - Do not force formatting into every response; keep it human and avoid over-structured output.
     - Return valid JSON only. No markdown fences. No extra prose outside the JSON.
     - Use this exact shape: {"answer":"string","followUpChips":[{"label":"string","prompt":"string"}]}.
     - The answer should be the assistant reply shown in chat.
