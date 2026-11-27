@@ -61,7 +61,7 @@ export default function AccessScreen({ accessStatus, onRetry }: AccessScreenProp
       <div className="space-y-3">
         <h2 className="text-3xl font-serif font-semibold text-ink">Device Approval Required</h2>
         <p className="text-lg leading-relaxed text-ink-muted">
-          Add this token and device ID to `config/accessTokens.txt` before using the app.
+          Share this approval entry privately with the app owner to request access.
         </p>
       </div>
 
