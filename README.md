@@ -1,182 +1,54 @@
 # AskDrKristof
 
-AskDrKristof is a Vite + React client for guided reflective chat flows. The frontend now calls local `/api` endpoints, and those endpoints use Vercel AI Gateway so the provider key stays server-side and the active model is selected through environment variables. Voice input uses the OpenAI API for transcription.
+I built this as a study in how a conversational assistant can use a small, inspectable knowledge base during a reflective exchange. I wanted to see whether it could select a useful source for the current turn and let a reviewer inspect what informed the response.
 
-The chat backend also supports a LlamaIndex.TS knowledge layer for Dr. Kristof materials: ingest source files, persist an index locally, and retrieve only relevant chunks per user turn.
+The project uses fictional examples and design notes for inspection. Its deployed interface has a separate client onboarding flow. For a technical walkthrough, use the repository and local development setup below.
 
-## Stack
+## How the retrieval works
 
-- React 19
-- Vite 6
-- TypeScript
-- Tailwind CSS 4
-- Vercel AI Gateway via the AI SDK (`ai`)
-- LlamaIndex.TS (`llamaindex`) for retrieval over indexed materials
+~~~mermaid
+flowchart TD
+    A["New message"] --> C["Build the model request"]
+    A --> R["Retrieve relevant source passages"]
+    R --> C
+    B["Rolling conversation summary"] --> C
+    C --> D["Gateway model response"]
+~~~
 
-## Local Dev
+The server keeps the gateway key out of the browser. It retrieves passages from a LlamaIndex.TS index and combines them with a rolling conversation summary when constructing the request. The source passages, retrieval scores, and corpus metadata are available in the local debug view. The app also accepts voice input through a separate transcription route.
 
-Prerequisites:
+A fictional example to try locally is “I keep asking friends to decide whether I should take the new job.” Inspect which passages a turn retrieved and whether the reply helps the person think through the choice. A retrieved passage alone tells you little about the quality of the reply, so read both.
 
-- Node.js 22.x or newer
-- npm 11.x or newer
-- A Vercel AI Gateway API key
-- An OpenAI API key only if you use voice transcription or `EMBEDDING_PROVIDER=openai`
+## Run locally
 
-Setup:
+Use Node.js 22+ and npm 11+.
 
-1. Install dependencies with `npm install`
-2. Create `.env.local` in the repo root
-3. Add `AI_GATEWAY_API_KEY=your_key_here` to `.env.local`
-4. Add `AI_GATEWAY_MODEL=google/gemini-3-flash` to `.env.local`
-5. Add `EMBEDDING_PROVIDER=openai` (or `gateway`)
-6. Add `OPENAI_API_KEY=your_openai_key_here` if using voice or `EMBEDDING_PROVIDER=openai`
-7. Optionally set `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`
-8. Start the app with `npm run dev`
-
-Notes:
-
-- The dev server prefers port `3000` and will automatically move to the next free port if `3000` is already in use.
-- Local `npm run dev` includes Vite middleware that serves `/api/chat` and `/api/summary`, so you do not need `vercel dev` just to test the app locally.
-- Without `AI_GATEWAY_API_KEY`, the UI still loads locally, but chat requests return a configuration message instead of calling the gateway.
-- Without `OPENAI_API_KEY`, voice transcription is disabled; embeddings are also disabled if `EMBEDDING_PROVIDER=openai`.
-- Change `AI_GATEWAY_MODEL` to switch providers or models without editing app code.
-- Change `OPENAI_TRANSCRIPTION_MODEL` to swap transcription models without editing app code.
-
-## Knowledge Base Ingestion (LlamaIndex.TS)
-
-This project uses a retrieval-first approach for "trained on my materials":
-
-- Keep the custom chat UX.
-- Index your source materials once.
-- Retrieve the most relevant chunks per turn.
-- Combine retrieval context with rolling conversation memory.
-
-### 1) Add source materials
-
-Put text-like files under [`materials/`](/Users/seb/git_personal/ask-dr-kristof/materials) (supports `.txt`, `.md`, `.mdx`, `.markdown`, `.json`, `.csv`, `.html`, `.htm`).
-
-### 2) Configure env values
-
-In `.env.local`, set:
-
-- `EMBEDDING_PROVIDER` (`openai` or `gateway`, default `openai`)
-- `OPENAI_API_KEY` (required for embeddings when provider is `openai`)
-- `AI_GATEWAY_API_KEY` or `EMBEDDING_GATEWAY_API_KEY` (required for embeddings when provider is `gateway`)
-- optional `EMBEDDING_GATEWAY_BASE_URL` (defaults to `https://ai-gateway.vercel.sh/v1`)
-- optional `MATERIALS_DIR`
-- optional `KNOWLEDGE_INDEX_DIR`
-- optional `KNOWLEDGE_EMBED_MODEL`
-- optional `KNOWLEDGE_CHUNK_SIZE`
-- optional `KNOWLEDGE_CHUNK_OVERLAP`
-- optional `KNOWLEDGE_RETRIEVAL_TOP_K`
-- optional `RAG_DEBUG` (`true` to always return retrieval debug details with `/api/chat`)
-- optional `KNOWLEDGE_BASE_ENABLED`
-
-See [`.env.example`](/Users/seb/git_personal/ask-dr-kristof/.env.example) for defaults.
-
-### 3) Build the index
-
-Run:
-
-```bash
-npm run ingest:materials
-```
-
-Optional overrides:
-
-```bash
-npm run ingest:materials -- --materials ./path/to/materials --index ./path/to/index
-```
-
-By default, index data is persisted under [`server/data/knowledge-index/`](/Users/seb/git_personal/ask-dr-kristof/server/data/knowledge-index) and used automatically by `/api/chat` retrieval.
-
-`materials/*` is gitignored by default to reduce accidental commits of sensitive source content.
-
-### 4) Chat with retrieval enabled
-
-Start dev server and chat normally:
-
-```bash
+~~~sh
+npm ci
+cp .env.example .env.local
 npm run dev
-```
+~~~
 
-If no index exists (or retrieval is disabled), chat falls back to the existing prompt + rolling context summary behavior.
+Set `AI_GATEWAY_API_KEY` and choose a model using [`.env.example`](.env.example) when you want to send chat requests. The development server serves the UI and local chat routes. Voice transcription uses `OPENAI_API_KEY`.
 
-### RAG Debug (Verify Retrieval Turn-by-Turn)
+### Inspect or rebuild the index
 
-To inspect exactly what was retrieved on each assistant response:
+The [example corpus](knowledge_sources/design_split/) contains policy, mode playbooks, examples, and interface copy derived from the [project design notes](design/). These commands regenerate and ingest it.
 
-- set `RAG_DEBUG=true` in env, or
-- open the app with `?ragDebug=1` in the URL
-
-When enabled, assistant messages show a **RAG Debug** panel with source files, scores, corpus/rule metadata, and retrieved excerpts.
-
-## Ingest Design PRDs (Split + Tagged)
-
-If you want to ingest the `design/` PRDs using a structured RAG source layout:
-
-1. Generate split, metadata-tagged source docs:
-
-```bash
+~~~sh
 npm run prepare:design-knowledge
-```
-
-This creates [`knowledge_sources/design_split/`](/Users/seb/git_personal/ask-dr-kristof/knowledge_sources/design_split) with corpus folders:
-- `policy`
-- `mode_playbook`
-- `examples`
-- `ux_copy`
-
-2. Ingest that generated folder:
-
-```bash
 npm run ingest:design-knowledge
-```
+~~~
 
-Or manually ingest any folder:
+For a different corpus, keep your source files in a local `materials/` directory and run `npm run ingest:materials`. The ingestion command needs credentials for the configured embedding provider. Its defaults are described in [`.env.example`](.env.example).
 
-```bash
-npm run ingest:materials -- --materials ./knowledge_sources/design_split
-```
-
-## Production Deployment (Bundled Index on Vercel)
-
-This repo is now configured to bundle the local knowledge index into deployed API functions via [`vercel.json`](/Users/seb/git_personal/ask-dr-kristof/vercel.json).
-
-Workflow:
-
-1. Rebuild the index locally after content changes:
-
-```bash
-npm run ingest:materials -- --materials ./knowledge_sources/design_split
-```
-
-2. Commit updated files under [`server/data/knowledge-index/`](/Users/seb/git_personal/ask-dr-kristof/server/data/knowledge-index)
-3. Deploy to Vercel
-
-This is a practical short-term setup. Every knowledge update requires re-ingest + redeploy.
-
-## Curated Guidance (Q/A Examples + Verbatim Answers)
-
-You can add a curated guidance file for stronger behavior than generic retrieval:
-
-- `verbatim` entries: if a match is high-confidence, the app returns your exact stored answer.
-- `adapt` entries: if a match is strong, the app uses your answer as a high-priority response pattern.
-
-For a quick informal setup guide, see [GUIDANCE_README.md](/Users/seb/git_personal/ask-dr-kristof/GUIDANCE_README.md).
+To inspect retrieval while developing, enable `RAG_DEBUG=true` locally and send a fictional message. The debug panel shows the retrieved source passages and scores. The [guidance guide](GUIDANCE_README.md) explains how to supply curated question-and-answer examples. [`vercel.json`](vercel.json) shows how the built index is bundled with serverless endpoints.
 
 ## Checks
 
-- `npm run lint` runs TypeScript type-checking
-- `npm run build` creates a production build in `dist/`
+~~~sh
+npm run lint
+npm run build
+~~~
 
-## Project Shape
-
-- [`src/App.tsx`](/Users/seb/git_personal/ask-dr-kristof/src/App.tsx) controls onboarding, mode selection, and chat flow
-- [`src/components/`](/Users/seb/git_personal/ask-dr-kristof/src/components) contains the UI screens and message components
-- [`src/services/aiGatewayService.ts`](/Users/seb/git_personal/ask-dr-kristof/src/services/aiGatewayService.ts) sends browser requests to the local API layer
-- [`src/services/openAiTranscriptionService.ts`](/Users/seb/git_personal/ask-dr-kristof/src/services/openAiTranscriptionService.ts) sends recorded audio to the local transcription API
-- [`server/askDrKristofService.ts`](/Users/seb/git_personal/ask-dr-kristof/server/askDrKristofService.ts) centralizes prompt construction and Vercel AI Gateway calls
-- [`server/openAiTranscriptionService.ts`](/Users/seb/git_personal/ask-dr-kristof/server/openAiTranscriptionService.ts) centralizes OpenAI transcription calls
-- [`api/`](/Users/seb/git_personal/ask-dr-kristof/api) contains the Vercel serverless endpoints used in deployment
-- [`design/`](/Users/seb/git_personal/ask-dr-kristof/design) contains the PRD drafts added for product planning
+The client uses React and Vite. The server code in [`server/`](server/) owns request construction and provider calls. The handlers in [`api/`](api/) expose the routes used by the deployment.
