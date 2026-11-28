@@ -7,6 +7,7 @@ import { devApiPlugin } from './server/devApiPlugin';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   const runtimeKeys = [
+    'APP_APPROVED_DEVICES',
     'AI_GATEWAY_API_KEY',
     'AI_GATEWAY_MODEL',
     'OPENAI_API_KEY',
@@ -31,7 +32,9 @@ export default defineConfig(({mode}) => {
   ] as const;
 
   for (const key of runtimeKeys) {
-    process.env[key] = env[key] || process.env[key];
+    if (process.env[key] === undefined && env[key] !== undefined) {
+      process.env[key] = env[key];
+    }
   }
 
   return {

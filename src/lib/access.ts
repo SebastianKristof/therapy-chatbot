@@ -1,5 +1,5 @@
-const ACCESS_TOKEN_KEY = 'askdrkristof_access_token';
-const DEVICE_ID_KEY = 'askdrkristof_device_id';
+const ACCESS_TOKEN_KEY = 'askdrkristof_access_token_v2';
+const DEVICE_ID_KEY = 'askdrkristof_device_id_v2';
 
 function generatePrefixedId(prefix: string) {
   const random = globalThis.crypto?.randomUUID?.().replace(/-/g, '') || `${Date.now()}${Math.random().toString(16).slice(2)}`;
